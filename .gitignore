@@ -1,1 +1,7 @@
-.env
+*.json
+*.jsonc
+*/__pycache__/*
+*.pyc
+
+*.log
+/data
