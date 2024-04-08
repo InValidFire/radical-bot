@@ -136,11 +136,11 @@ async def _delete_backups(bot: MainBot, location: str,
         if len(backups) == 0:
             embed.description = "No backups found."
             return embed, None
-        view = DropdownView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
-                            _delete_local_backup_callback, embed)
+        view = BackupView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
+                          _delete_local_backup_callback, embed)
+        await interaction.response.send_message(embed=embed, view=view)
         if interaction is not None:
             view.message = await interaction.original_response()
-        return embed, view
     elif location == "cloud":
         if interaction is not None:
             embed.description = "Fetching backups..."
@@ -149,12 +149,12 @@ async def _delete_backups(bot: MainBot, location: str,
         if len(backups) == 0:
             embed.description = "No backups found."
             return embed, None
-        view = DropdownView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
-                            _delete_cloud_backup_callback, embed)
+        view = BackupView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
+                          _delete_cloud_backup_callback, embed)
         if interaction is not None:
             view.message = await interaction.original_response()
-        embed.description = "Select the backups you would like to delete."
-        return embed, view
+    embed.description = "Select the backups you would like to delete."
+    return embed, view
 
 
 async def _upload_backup(bot: MainBot, backup_file: Path,
@@ -356,7 +356,7 @@ class Dropdown(discord.ui.Select):
         await self.selected_handler(interaction, self.values, self.embed)
 
 
-class DropdownView(discord.ui.View):
+class BackupView(discord.ui.View):
     #  TODO: Create a way to paginate the items and expose the full backup count even beyond Discord's initial limits.
     def __init__(self, items: dict[str, str], selected_handler, embed: discord.Embed, timeout: int = 30):
         super().__init__(timeout=timeout)
