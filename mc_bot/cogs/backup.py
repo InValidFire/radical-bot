@@ -6,6 +6,7 @@ import logging
 import asyncio
 from dataclasses import fields
 from typing import Literal
+from math import ceil
 
 from discord.ext import commands, tasks
 from discord import app_commands
@@ -131,29 +132,24 @@ async def _delete_backups(bot: MainBot, location: str,
         return embed
 
     embed = BackupEmbed(title="Delete Backups")
+    embed.description = "Select the backups you would like to delete."
     if location == "local":
         backups = __get_local_backups(bot)
         if len(backups) == 0:
             embed.description = "No backups found."
-            return embed, None
         view = BackupView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
-                          _delete_local_backup_callback, embed)
-        await interaction.response.send_message(embed=embed, view=view)
-        if interaction is not None:
-            view.message = await interaction.original_response()
+                          embed, _delete_local_backup_callback)
     elif location == "cloud":
         if interaction is not None:
             embed.description = "Fetching backups..."
-            await interaction.response.send_message(embed=embed)
         backups = await __get_cloud_backups(bot)
         if len(backups) == 0:
             embed.description = "No backups found."
-            return embed, None
         view = BackupView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
-                          _delete_cloud_backup_callback, embed)
-        if interaction is not None:
-            view.message = await interaction.original_response()
-    embed.description = "Select the backups you would like to delete."
+                          embed, _delete_cloud_backup_callback)
+    await interaction.response.send_message(embed=embed)
+    if interaction is not None:
+        view.message = await interaction.original_response()
     return embed, view
 
 
@@ -334,19 +330,16 @@ async def _get_backups(bot: MainBot, location: Literal['cloud', 'local'],
 
 
 class Dropdown(discord.ui.Select):
-    def __init__(self, *, items: dict[str, str] = None,
-                 placeholder: str = None, selected_handler=None, max_values: int = 1,
+    def __init__(self, *, options: list = None,
+                 placeholder: str = None, page: int = 0, selected_handler=None, max_values: int = 1,
                  embed: discord.Embed):
-        if items is None:
-            items = []
+        if options is None:
+            options = []
         self.embed = embed
-        self.items = items
         self.selected_handler = selected_handler
 
-        options = []
-        for item in self.items:
-            options.append(discord.SelectOption(label=item, value=items[item]))
-
+        logger.debug("Options: %s", options)
+        logger.debug("Option count: %s", len(options))
         if len(options) < max_values:  # Discord requires max_values to be less than or equal to the number of options
             max_values = len(options)
 
@@ -358,16 +351,88 @@ class Dropdown(discord.ui.Select):
 
 class BackupView(discord.ui.View):
     #  TODO: Create a way to paginate the items and expose the full backup count even beyond Discord's initial limits.
-    def __init__(self, items: dict[str, str], selected_handler, embed: discord.Embed, timeout: int = 30):
-        super().__init__(timeout=timeout)
+    # if a selection_handler is provided, a dropdown will be added to the view.
+    def __init__(self, items: dict[str, str], embed: discord.Embed, selected_handler: callable = None):
+        super().__init__()
         self.embed = embed
-        self.add_item(Dropdown(items=items, selected_handler=selected_handler, embed=embed, max_values=25))
+        self.page_size = 10
+        self.page_count = ceil(len(items) / self.page_size)
+        self.page_index = 0
+        self.items = items
+
+        if self.page_count > 1:
+            self.embed.set_footer(text=f"Page {self.page_index + 1}/{self.page_count}")
+
+        if self.page_count == 1:
+            for item in self.children:
+                if isinstance(item, discord.ui.Button):
+                    self.remove_item(item)  # remove the buttons for one-page views
+
+        if selected_handler is not None:
+            all_options = []
+            for item in self.items:
+                all_options.append(discord.SelectOption(label=item, value=items[item]))
+            self.add_item(Dropdown(
+                options=all_options[self.page_index*self.page_size:(self.page_index*self.page_size)+self.page_size],
+                selected_handler=selected_handler, embed=embed,
+                max_values=self.page_size, page=self.page_index))
+
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary)
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        self.page_index -= 1
+        logger.debug("Previous page: %s", self.page_index)
+        await self.update_message(interaction)
+
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        self.page_index += 1
+        logger.debug("Next page: %s", self.page_index)
+        await self.update_message(interaction)
+
+    @property
+    def page_index(self) -> int:
+        return self._page_index
+
+    @page_index.setter
+    def page_index(self, value: int) -> None:
+        adjusted_page_count = self.page_count - 1
+        logger.debug("Attempting to set page index value: %s", value)
+        logger.debug("Page count: %s", self.page_count)
+        logger.debug("Is value less than 0? %s", value < 0)
+        # 0-based index, adjust for comparison
+        logger.debug("Is value greater than page count? %s", value > adjusted_page_count)
+        if value < 1:
+            self._page_index = 0
+        elif value > adjusted_page_count:
+            logger.debug("Setting page index to last page, %s", adjusted_page_count)
+            self._page_index = self.page_count - 1
+        else:
+            logger.debug("Setting page index to %s", value)
+            self._page_index = value
 
     async def on_timeout(self) -> None:
         for item in self.children:
             item.disabled = True
         self.embed.description = "This interaction has timed out."
         await self.message.edit(view=self)  # this should be set immediately after sending the interaction response.
+
+    async def update_message(self, interaction: discord.Interaction) -> None:
+        try:
+            all_options = []
+            for item in self.items:
+                all_options.append(discord.SelectOption(label=item, value=self.items[item]))
+            options = all_options[self.page_index*self.page_size:(self.page_index*self.page_size)+self.page_size]
+            self.embed.set_footer(text=f"Page {self.page_index + 1}/{self.page_count}")
+            for item in self.children:
+                if isinstance(item, Dropdown):
+                    selected_handler = item.selected_handler
+                    self.remove_item(item)
+            self.add_item(Dropdown(
+                options=options, selected_handler=selected_handler, embed=self.embed,
+                max_values=self.page_size, page=self.page_index))
+            await interaction.response.edit_message(embed=self.embed, view=self)
+        except Exception as e:
+            logger.error("Failed to update message: %s", e)
 
 
 class BackupCog(commands.Cog):
