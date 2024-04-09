@@ -90,12 +90,15 @@ async def _stop_server(bot: MainBot, interaction: discord.Interaction = None) ->
         embed.description = "Stopping server.."
         if interaction is not None and not interaction.is_expired():
             await interaction.response.send_message(embed=embed)
-        await _run_command(bot, "stop")
-        return_code = bot.server_process.wait()
-        bot.server_process = None
-        embed.description = f"Server stopped with return code {return_code}."
-        logger.info("Server stopped with return code %s.", return_code)
-        await bot.change_presence(status=discord.Status.idle, activity=discord.Game(name="with your heart."))
+        try:
+            await _run_command(bot, "stop")
+            return_code = bot.server_process.wait()
+            bot.server_process = None
+            embed.description = f"Server stopped with return code {return_code}."
+            logger.info("Server stopped with return code %s.", return_code)
+            await bot.change_presence(status=discord.Status.idle, activity=discord.Game(name="with your heart."))
+        except ConnectionRefusedError:
+            embed.description = "Server is not responding. Is the server running?"
         if interaction is not None and not interaction.is_expired():
             await interaction.edit_original_response(embed=embed)
         return embed
