@@ -115,6 +115,10 @@ async def _delete_backups(bot: MainBot, location: str,
     async def _delete_cloud_backup_callback(interaction: discord.Interaction,
                                             backups: list[str],
                                             embed: discord.Embed) -> discord.Embed:
+        """
+        Delete backups from the S3 bucket. This function is called when the user selects a backup to delete.
+        It will delete the selected backups from the S3 bucket and update the embed with the results.
+        """
         embed.description = "Deleting backups..."
         #  this is a separate interaction from the initial slash-command so we respond as if we haven't before.
         await interaction.response.edit_message(embed=embed, view=None)
@@ -202,6 +206,16 @@ async def _upload_backup(bot: MainBot, backup_file: Path,
 
 
 def _zip_directory(zip_file: Path, directory: Path):
+    """
+    Create a zip file of a directory.
+
+    Args:
+        zip_file: The zip file to create.
+        directory: The directory to zip.
+
+    Raises:
+        ValueError: If the directory does not exist.
+    """
     logger.info("Creating backup at %s of directory %s.", zip_file, directory)
     if not directory.is_dir():
         raise ValueError(directory)
