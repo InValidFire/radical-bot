@@ -42,7 +42,6 @@ class Discord:
 class General:
     mode: str
     update_mode: str
-    update_branch: str
 
 
 @dataclass
@@ -113,8 +112,7 @@ def load_config(bot: commands.Bot, filepath: Path) -> Config:
                           Path("data").joinpath(data["minecraft"]["backup_dir"]),
                           rcon)
     general = General(data["general"]["mode"],
-                      data["general"]["update_mode"],
-                      data["general"]["update_branch"])
+                      data["general"]["update_mode"])
     cloud = Cloud()
     if data.get("cloud") is not None:
         cloud.region_name = data["cloud"]["region_name"]
