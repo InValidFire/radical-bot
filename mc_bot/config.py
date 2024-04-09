@@ -39,10 +39,18 @@ class Discord:
 
 
 @dataclass
+class General:
+    mode: str
+    update_mode: str
+    update_branch: str
+
+
+@dataclass
 class Config:
     discord: Discord
     minecraft: Minecraft
     cloud: Cloud
+    general: General
 
 
 def _load_jsonc(filepath: Path) -> defaultdict:
@@ -104,6 +112,9 @@ def load_config(bot: commands.Bot, filepath: Path) -> Config:
                           Path("data").joinpath(data["minecraft"]["server_dir"]),
                           Path("data").joinpath(data["minecraft"]["backup_dir"]),
                           rcon)
+    general = General(data["general"]["mode"],
+                      data["general"]["update_mode"],
+                      data["general"]["update_branch"])
     cloud = Cloud()
     if data.get("cloud") is not None:
         cloud.region_name = data["cloud"]["region_name"]
@@ -111,5 +122,5 @@ def load_config(bot: commands.Bot, filepath: Path) -> Config:
         cloud.endpoint_url = data["cloud"]["endpoint_url"]
         cloud.access_key_id = data["cloud"]["access_key_id"]
         cloud.access_key_secret = data["cloud"]["access_key_secret"]
-    config = Config(discord, minecraft, cloud)
+    config = Config(discord, minecraft, cloud, general)
     return config

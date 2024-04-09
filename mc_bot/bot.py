@@ -4,9 +4,10 @@ import logging
 import traceback
 
 from discord.ext import commands
-from discord import DiscordException
+import discord
 
 from .config import load_config
+from .git import align_tag_version, get_version_hash
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class MainBot(commands.Bot):
                 try:
                     await self.load_extension(cog_module)
                     logger.info("Loaded cog: %s", cog_module)
-                except DiscordException as e:
+                except discord.DiscordException as e:
                     logger.error("Failed to load cog: %s", cog_module)
                     logger.error(e)
                     if isinstance(e, commands.ExtensionFailed):
@@ -44,8 +45,19 @@ class MainBot(commands.Bot):
     async def on_ready(self):
         # this is to refresh the config with object references from discord.py
         self.config = load_config(self, Path.cwd().joinpath("config.jsonc"))
-        await self.load_cogs()
+        try:
+            await self.load_cogs()
+        except commands.ExtensionAlreadyLoaded:
+            logger.info("Cogs already loaded.")
         logger.info("Bot is ready. Logged in as %s", self.user.name)
+        embed = discord.Embed(title="Bot is ready", color=discord.Color.green())
+        was_aligned = await align_tag_version(self)
+        if was_aligned:
+            embed.description = "Bot was aligned with the latest tag. Restarting..."
+            self.close()  # restart the bot, as the version was updated.
+            return
+        embed.set_footer(text=f"Version: {await get_version_hash(self)}")
+        await self.config.discord.bot_channel.send(embed=embed)
 
     async def on_disconnect(self):
         logger.info("Bot disconnected.")
