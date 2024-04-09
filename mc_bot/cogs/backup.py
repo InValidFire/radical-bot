@@ -1,17 +1,18 @@
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile
 from datetime import datetime
 from pathlib import Path
 import shutil
 import logging
-import asyncio
 from dataclasses import fields
 from typing import Literal
-from math import ceil
 
 from discord.ext import commands, tasks
 from discord import app_commands
 import discord
 
+from ..views.backup_view import BackupView
+from ..filesystem import zip_directory, delete_local_backup, get_local_backups
+from ..aws import upload_backup, get_cloud_backups, delete_cloud_backup
 from ..mcrcon import run_command
 from ..bot import MainBot
 
@@ -25,74 +26,6 @@ class BackupEmbed(discord.Embed):
         self.color = discord.Color.dark_gold()
 
 
-async def __get_cloud_backups(bot: MainBot) -> list:
-    backups_resp = await __run_aws_command(bot, ("s3", "ls", f"s3://{bot.config.cloud.bucket_name}"))
-    backups = []
-    if len(backups_resp[0]) == 0:
-        return backups
-    for backup in backups_resp[0].split("\n"):
-        if not backup:  # skip empty lines
-            continue
-        backup_name = backup.split()[-1]
-        backup_datetime = datetime.strptime(" ".join(backup_name.split("_")[1:]), "%Y-%m-%d %H-%M-%S.zip")
-        backup_time = backup_datetime.strftime("%H:%M:%S")
-        backup_date = backup_datetime.strftime("%Y-%m-%d")
-        backup_size = round(int(backup.split()[2])/1024/1024, 2)
-        backup_link = f"{bot.config.cloud.endpoint_url}/{bot.config.cloud.bucket_name}/{backup_name}"
-        backup_link = f"[{backup_size} MiB]({backup_link})"
-        backups.append((backup_name, backup_date, backup_time, backup_link))
-    logger.info("Cloud backups [%s]: %s", len(backups), backups)
-    return backups
-
-
-def __get_local_backups(bot: MainBot) -> list[tuple[str, str, str, float]]:
-    """Get a list of all local backups.
-
-    Args:
-        bot: The bot instance.
-
-    Returns:
-        A list of all local backups. Each item contains the name, date, time, and size of each backup."""
-    backups = []
-    for backup in bot.config.minecraft.backup_dir.iterdir():
-        backup_datetime = datetime.strptime(" ".join(backup.stem.split("_")[1:]), "%Y-%m-%d %H-%M-%S")
-        backup_time = backup_datetime.strftime("%H:%M:%S")
-        backup_date = backup_datetime.strftime("%Y-%m-%d")
-        backup_size = round(backup.stat().st_size/1024/1024, 2)
-        backups.append((backup.name, backup_date, backup_time, backup_size))
-    return backups
-
-
-async def __run_aws_command(bot: MainBot, command: tuple) -> tuple[str, str, int]:
-    """
-    Run an AWS CLI command.
-
-    Args:
-        bot: The bot instance.
-        command: The command to run.
-
-    Returns:
-        A tuple containing the stdout, stderr, and return code of the command.
-    """
-    class AWSException(Exception):
-        pass
-
-    process = await asyncio.create_subprocess_exec(
-        "aws", *command,
-        env={"AWS_ACCESS_KEY_ID": bot.config.cloud.access_key_id,
-             "AWS_SECRET_ACCESS_KEY": bot.config.cloud.access_key_secret,
-             "AWS_DEFAULT_REGION": bot.config.cloud.region_name,
-             "AWS_ENDPOINT_URL": bot.config.cloud.endpoint_url},
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await process.communicate()
-    logger.info("AWS command: %s", command)
-    logger.info("AWS stdout: %s", stdout.decode("utf-8").strip())
-    logger.info("AWS stderr: %s", stderr.decode("utf-8").strip())
-    if process.returncode != 0:
-        raise AWSException(f"AWS Error: {stderr.decode('utf-8').strip()}")
-    return stdout.decode("utf-8"), stderr.decode("utf-8"), process.returncode
-
-
 async def _delete_backups(bot: MainBot, location: str,
                           interaction: discord.Interaction = None) -> tuple[discord.Embed, discord.ui.View]:
     """
@@ -102,9 +35,16 @@ async def _delete_backups(bot: MainBot, location: str,
     async def _delete_local_backup_callback(interaction: discord.Interaction,
                                             backups: list[str],
                                             embed: discord.Embed) -> discord.Embed:
+        """
+        Delete backups from the local filesystem. This function is called when the user selects a backup to delete.
+        It will delete the selected backups from the filesystem and update the embed with the results.
+        
+        Worthy note: the interaction here is not the same as the one that triggered the command, so the response
+        is a new one which uses `interaction.response.edit_message()` rather than `interaction.edit_original_response()`
+        """
         embed.description = "Deleted the following backups:"
         for backup in backups:
-            bot.config.minecraft.backup_dir.joinpath(backup).unlink()
+            delete_local_backup(backup)
             embed.description += f"\n- **{backup}**"
         embed.set_footer(text="Local Files")
         if interaction is not None and not interaction.is_expired():
@@ -118,18 +58,16 @@ async def _delete_backups(bot: MainBot, location: str,
         """
         Delete backups from the S3 bucket. This function is called when the user selects a backup to delete.
         It will delete the selected backups from the S3 bucket and update the embed with the results.
+        
+        Worthy note: the interaction here is not the same as the one that triggered the command, so the response
+        is a new one which uses `interaction.response.edit_message()` rather than `interaction.edit_original_response()`
         """
         embed.description = "Deleting backups..."
         #  this is a separate interaction from the initial slash-command so we respond as if we haven't before.
         await interaction.response.edit_message(embed=embed, view=None)
         embed.description = "Deleted the following backups:"
         for backup in backups:
-            command = ("s3", "rm", f"s3://{bot.config.cloud.bucket_name}/{backup}")
-            try:
-                await __run_aws_command(bot, command)
-            except Exception as e:
-                embed.description += f"Failed to delete backup '{backup}': {e}"
-                logger.error("Failed to delete backup '%s': %s", backup, e)
+            await delete_cloud_backup(bot.config.cloud, backup)
             embed.description += f"\n- **{backup}**"
         embed.set_footer(text="Cloud Files")
         await interaction.edit_original_response(embed=embed, view=None)
@@ -138,7 +76,7 @@ async def _delete_backups(bot: MainBot, location: str,
     embed = BackupEmbed(title="Delete Backups")
     embed.description = "Select the backups you would like to delete."
     if location == "local":
-        backups = __get_local_backups(bot)
+        backups = get_local_backups(bot.config.minecraft)
         if len(backups) == 0:
             embed.description = "No backups found."
         view = BackupView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
@@ -146,7 +84,7 @@ async def _delete_backups(bot: MainBot, location: str,
     elif location == "cloud":
         if interaction is not None:
             embed.description = "Fetching backups..."
-        backups = await __get_cloud_backups(bot)
+        backups = await get_cloud_backups(bot)
         if len(backups) == 0:
             embed.description = "No backups found."
         view = BackupView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
@@ -185,9 +123,7 @@ async def _upload_backup(bot: MainBot, backup_file: Path,
         await interaction.edit_original_response(embed=embed)
     logger.info("Uploading backup to S3: %s", backup_file.name)
     try:
-        command = ("s3", "cp", str(backup_file),
-                   f"s3://{bot.config.cloud.bucket_name}/{backup_file.name}", "--acl", "public-read")
-        await __run_aws_command(bot, command)
+        await upload_backup(bot.config.cloud, backup_file)
         logger.info("Backup uploaded to S3.")
         embed.set_field_at(field_count, name="Upload Status", value="complete")
         url_text = f"[Download Backup]({bot.config.cloud.endpoint_url}/{bot.config.cloud.bucket_name}/\
@@ -203,30 +139,6 @@ async def _upload_backup(bot: MainBot, backup_file: Path,
         if interaction is not None and not interaction.is_expired():
             await interaction.edit_original_response(embed=embed)
         return embed
-
-
-def _zip_directory(zip_file: Path, directory: Path):
-    """
-    Create a zip file of a directory.
-
-    Args:
-        zip_file: The zip file to create.
-        directory: The directory to zip.
-
-    Raises:
-        ValueError: If the directory does not exist.
-    """
-    logger.info("Creating backup at %s of directory %s.", zip_file, directory)
-    if not directory.is_dir():
-        raise ValueError(directory)
-    # create a zip file with compression, requires zlib to be installed
-    with ZipFile(zip_file, "w", compression=ZIP_DEFLATED) as zf:
-        for file in directory.rglob("*"):
-            if file.is_dir():
-                continue
-            logger.info("Checking file: %s.", file)
-            zf.write(file, str(file.relative_to(directory)))
-            logger.info("Added %s to backup.", file)
 
 
 async def _create_backup(bot: MainBot, interaction: discord.Interaction = None, upload: bool = True) -> discord.Embed:
@@ -255,7 +167,7 @@ async def _create_backup(bot: MainBot, interaction: discord.Interaction = None, 
             return await _error_embed(embed, e)
     if interaction is not None and not interaction.is_expired():
         await interaction.response.send_message(embed=embed, ephemeral=True)
-    _zip_directory(backup_file, bot.config.minecraft.server_dir)  # create the backup of the entire server directory
+    zip_directory(backup_file, bot.config.minecraft.server_dir)  # create the backup of the entire server directory
     if bot.server_process is not None:
         try:
             await run_command("save-on", bot.config.minecraft.rcon)
@@ -307,7 +219,7 @@ async def _get_cloud_backups(bot: MainBot, embed: discord.Embed) -> discord.Embe
             if getattr(bot.config.cloud, field.name) is None:
                 embed.description = "Cloud storage not configured."
                 return embed
-        backups = await __get_cloud_backups(bot)
+        backups = await get_cloud_backups(bot)
         embed.description = ""
         embed.set_footer(text="Cloud Files")
         if len(backups) == 0:
@@ -329,7 +241,7 @@ async def _get_backups(bot: MainBot, location: Literal['cloud', 'local'],
     if location == "local":
         embed.description = ""
         embed.set_footer(text="Local Files")
-        backups = __get_local_backups(bot)
+        backups = get_local_backups(bot.config.minecraft)
         if len(backups) == 0:
             embed.description = "No backups found."
             return embed
@@ -341,101 +253,6 @@ async def _get_backups(bot: MainBot, location: Literal['cloud', 'local'],
         await interaction.response.send_message(embed=embed)  # defer the response to prevent timeout
         embed = await _get_cloud_backups(bot, embed)
     return embed
-
-
-class Dropdown(discord.ui.Select):
-    def __init__(self, *, options: list = None,
-                 placeholder: str = None, page: int = 0, selected_handler=None, max_values: int = 1,
-                 embed: discord.Embed):
-        if options is None:
-            options = []
-        self.embed = embed
-        self.selected_handler = selected_handler
-
-        if len(options) < max_values:  # Discord requires max_values to be less than or equal to the number of options
-            max_values = len(options)
-
-        super().__init__(placeholder=placeholder, min_values=1, max_values=max_values, options=options)
-
-    async def callback(self, interaction: discord.Interaction) -> None:
-        await self.selected_handler(interaction, self.values, self.embed)
-
-
-class BackupView(discord.ui.View):
-    #  TODO: Create a way to paginate the items and expose the full backup count even beyond Discord's initial limits.
-    # if a selection_handler is provided, a dropdown will be added to the view.
-    def __init__(self, items: dict[str, str], embed: discord.Embed, selected_handler: callable):
-        super().__init__()
-        self.embed = embed
-        self.page_size = 10
-        self.page_count = ceil(len(items) / self.page_size)
-        self.page_index = 0
-        self.items = items
-
-        if self.page_count > 1:
-            self.embed.set_footer(text=f"Page {self.page_index + 1}/{self.page_count}")
-
-        if self.page_count == 1:
-            for item in self.children:
-                if isinstance(item, discord.ui.Button):
-                    self.remove_item(item)  # remove the buttons for one-page views
-
-        all_options = []
-        for item in self.items:
-            all_options.append(discord.SelectOption(label=item, value=items[item]))
-        self.add_item(Dropdown(
-            options=all_options[self.page_index*self.page_size:(self.page_index*self.page_size)+self.page_size],
-            selected_handler=selected_handler, embed=embed,
-            max_values=self.page_size, page=self.page_index))
-
-    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary)
-    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        self.page_index -= 1
-        await self.update_message(interaction)
-
-    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary)
-    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        self.page_index += 1
-        await self.update_message(interaction)
-
-    @property
-    def page_index(self) -> int:
-        return self._page_index
-
-    @page_index.setter
-    def page_index(self, value: int) -> None:
-        adjusted_page_count = self.page_count - 1
-        # 0-based index, adjust for comparison
-        if value < 1:
-            self._page_index = 0
-        elif value > adjusted_page_count:
-            self._page_index = self.page_count - 1
-        else:
-            self._page_index = value
-
-    async def on_timeout(self) -> None:
-        for item in self.children:
-            item.disabled = True
-        self.embed.description = "This interaction has timed out."
-        await self.message.edit(view=self)  # this should be set immediately after sending the interaction response.
-
-    async def update_message(self, interaction: discord.Interaction) -> None:
-        try:
-            all_options = []
-            for item in self.items:
-                all_options.append(discord.SelectOption(label=item, value=self.items[item]))
-            options = all_options[self.page_index*self.page_size:(self.page_index*self.page_size)+self.page_size]
-            self.embed.set_footer(text=f"Page {self.page_index + 1}/{self.page_count}")
-            for item in self.children:
-                if isinstance(item, Dropdown):
-                    selected_handler = item.selected_handler
-                    self.remove_item(item)
-            self.add_item(Dropdown(
-                options=options, selected_handler=selected_handler, embed=self.embed,
-                max_values=self.page_size, page=self.page_index))
-            await interaction.response.edit_message(embed=self.embed, view=self)
-        except Exception as e:
-            logger.error("Failed to update message: %s", e)
 
 
 class BackupCog(commands.Cog):
