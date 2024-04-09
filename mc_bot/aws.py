@@ -1,6 +1,6 @@
 import logging
 import asyncio
-import datetime
+from datetime import datetime
 from pathlib import Path
 from .config import Cloud
 

@@ -10,7 +10,8 @@ from discord.ext import commands, tasks
 from discord import app_commands
 import discord
 
-from ..views.backup_view import BackupView
+from ..views.select_view import SelectView
+from ..views.page_view import PageView
 from ..filesystem import zip_directory, delete_local_backup, get_local_backups
 from ..aws import upload_backup, get_cloud_backups, delete_cloud_backup
 from ..mcrcon import run_command
@@ -38,13 +39,13 @@ async def _delete_backups(bot: MainBot, location: str,
         """
         Delete backups from the local filesystem. This function is called when the user selects a backup to delete.
         It will delete the selected backups from the filesystem and update the embed with the results.
-        
+
         Worthy note: the interaction here is not the same as the one that triggered the command, so the response
         is a new one which uses `interaction.response.edit_message()` rather than `interaction.edit_original_response()`
         """
         embed.description = "Deleted the following backups:"
         for backup in backups:
-            delete_local_backup(backup)
+            delete_local_backup(bot.config.minecraft.backup_dir.joinpath(backup))
             embed.description += f"\n- **{backup}**"
         embed.set_footer(text="Local Files")
         if interaction is not None and not interaction.is_expired():
@@ -58,7 +59,7 @@ async def _delete_backups(bot: MainBot, location: str,
         """
         Delete backups from the S3 bucket. This function is called when the user selects a backup to delete.
         It will delete the selected backups from the S3 bucket and update the embed with the results.
-        
+
         Worthy note: the interaction here is not the same as the one that triggered the command, so the response
         is a new one which uses `interaction.response.edit_message()` rather than `interaction.edit_original_response()`
         """
@@ -74,22 +75,22 @@ async def _delete_backups(bot: MainBot, location: str,
         return embed
 
     embed = BackupEmbed(title="Delete Backups")
-    embed.description = "Select the backups you would like to delete."
+    if interaction is not None:
+        embed.description = "Fetching backups..."
+        await interaction.response.send_message(embed=embed, ephemeral=True)
     if location == "local":
         backups = get_local_backups(bot.config.minecraft)
-        if len(backups) == 0:
-            embed.description = "No backups found."
-        view = BackupView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
+        view = SelectView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
                           embed, _delete_local_backup_callback)
     elif location == "cloud":
-        if interaction is not None:
-            embed.description = "Fetching backups..."
-        backups = await get_cloud_backups(bot)
-        if len(backups) == 0:
-            embed.description = "No backups found."
-        view = BackupView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
+        backups = await get_cloud_backups(bot.config.cloud)
+        view = SelectView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
                           embed, _delete_cloud_backup_callback)
-    await interaction.response.send_message(embed=embed)
+    if len(backups) == 0:
+        embed.description = "No backups found."
+    else:
+        embed.description = "Select the backups you would like to delete."
+    await interaction.edit_original_response(embed=embed)
     if interaction is not None:
         view.message = await interaction.original_response()
     return embed, view
@@ -213,46 +214,48 @@ async def _restore_backup(bot: MainBot, backup_file: Path,
     return embed
 
 
-async def _get_cloud_backups(bot: MainBot, embed: discord.Embed) -> discord.Embed:
+async def _get_cloud_backups(bot: MainBot, embed: discord.Embed) -> tuple[discord.Embed, discord.ui.View]:
     try:
         for field in fields(bot.config.cloud):
             if getattr(bot.config.cloud, field.name) is None:
                 embed.description = "Cloud storage not configured."
-                return embed
-        backups = await get_cloud_backups(bot)
+                return embed, None
+        backups = await get_cloud_backups(bot.config.cloud)
+        view = PageView([f"**{backup[1]}** - **{backup[2]}** - {backup[3]}" for backup in backups], embed)
         embed.description = ""
-        embed.set_footer(text="Cloud Files")
         if len(backups) == 0:
             embed.description = "No backups found."
-            return embed
-        for backup in backups:
+            return embed, view
+        for backup in backups:  # have this set in the view so we don't have to write this twice
             embed.description += f"\n- **{backup[1]}** - **{backup[2]}** - {backup[3]}"
     except Exception as e:
         logger.error("Failed to get backups: %s", e)
         embed.description = "Failed to get backups."
         embed.add_field(name="Error", value=str(e))
         raise e
-    return embed
+    return embed, view
 
 
 async def _get_backups(bot: MainBot, location: Literal['cloud', 'local'],
-                       interaction: discord.Interaction) -> discord.Embed:
+                       interaction: discord.Interaction) -> tuple[discord.Embed, discord.ui.View]:
     embed = BackupEmbed(title="Backup List")
     if location == "local":
         embed.description = ""
         embed.set_footer(text="Local Files")
         backups = get_local_backups(bot.config.minecraft)
+        view = PageView([f"**{backup[1]}** - **{backup[2]}** - {backup[3]}" for backup in backups], embed)
         if len(backups) == 0:
             embed.description = "No backups found."
-            return embed
+            return embed, view
         for backup in backups:
             backup_date, backup_time, backup_size = backup[1:]
             embed.description += f"\n- **{backup_date}** - **{backup_time}** - {backup_size} MiB"
     elif location == "cloud":
         embed.description = "Fetching backups..."
-        await interaction.response.send_message(embed=embed)  # defer the response to prevent timeout
-        embed = await _get_cloud_backups(bot, embed)
-    return embed
+        embed.set_footer(text="Cloud Files")
+        await interaction.response.send_message(embed=embed, ephemeral=True)  # defer the response to prevent timeout
+        embed, view = await _get_cloud_backups(bot, embed)
+    return embed, view
 
 
 class BackupCog(commands.Cog):
@@ -276,11 +279,11 @@ class BackupCog(commands.Cog):
 
     @backup_group.command(name="list", description="Get a list of all backups.")
     async def get_backups(self, interaction: discord.Interaction, location: Literal['cloud', 'local']) -> None:
-        embed = await _get_backups(self.bot, location, interaction)
+        embed, view = await _get_backups(self.bot, location, interaction)
         if interaction.response.is_done():
-            await interaction.edit_original_response(embed=embed)
+            await interaction.edit_original_response(embed=embed, view=view)
         else:
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     @backup_group.command(name="delete", description="Delete a backup.")
     async def delete_backup(self, interaction: discord.Interaction, location: Literal['cloud', 'local']) -> None:

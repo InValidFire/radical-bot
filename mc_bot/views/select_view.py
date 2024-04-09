@@ -8,7 +8,7 @@ logger = logging.getLogger(__file__)
 
 class Dropdown(discord.ui.Select):
     def __init__(self, *, options: list = None,
-                 placeholder: str = None, page: int = 0, selected_handler=None, max_values: int = 1,
+                 placeholder: str = None, selected_handler=None, max_values: int = 1,
                  embed: discord.Embed):
         if options is None:
             options = []
@@ -24,14 +24,14 @@ class Dropdown(discord.ui.Select):
         await self.selected_handler(interaction, self.values, self.embed)
 
 
-class BackupView(discord.ui.View):
+class SelectView(discord.ui.View):
     #  TODO: Create a way to paginate the items and expose the full backup count even beyond Discord's initial limits.
     # if a selection_handler is provided, a dropdown will be added to the view.
     def __init__(self, items: dict[str, str], embed: discord.Embed, selected_handler: callable):
         super().__init__()
         self.embed = embed
         self.page_size = 10
-        self.page_count = ceil(len(items) / self.page_size)
+        self.page_count = max(ceil(len(items) / self.page_size), 1)  # ensure at least one page
         self.page_index = 0
         self.items = items
 
@@ -49,7 +49,7 @@ class BackupView(discord.ui.View):
         self.add_item(Dropdown(
             options=all_options[self.page_index*self.page_size:(self.page_index*self.page_size)+self.page_size],
             selected_handler=selected_handler, embed=embed,
-            max_values=self.page_size, page=self.page_index))
+            max_values=self.page_size))
 
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
@@ -95,7 +95,7 @@ class BackupView(discord.ui.View):
                     self.remove_item(item)
             self.add_item(Dropdown(
                 options=options, selected_handler=selected_handler, embed=self.embed,
-                max_values=self.page_size, page=self.page_index))
+                max_values=self.page_size))
             await interaction.response.edit_message(embed=self.embed, view=self)
         except Exception as e:
             logger.error("Failed to update message: %s", e)
