@@ -5,8 +5,15 @@ import discord
 from ..bot import MainBot
 
 
+class SystemEmbed(discord.Embed):
+    """Class to set defaults for embeds within this Cog."""
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.color = discord.Color.dark_grey()
+
+
 async def _sync_commands(bot: MainBot, guild_id: str = None, globally: bool = False):
-    embed = discord.Embed(title="Syncing commands", color=discord.Color.green())
+    embed = SystemEmbed(title="Syncing commands")
     embed.description = "Syncing application commands to Discord."
     if guild_id is not None:
         try:
@@ -23,13 +30,6 @@ async def _sync_commands(bot: MainBot, guild_id: str = None, globally: bool = Fa
     elif globally:
         await bot.tree.sync()
     return embed
-
-
-class SystemEmbed(discord.Embed):
-    """Class to set defaults for embeds within this Cog."""
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.color = discord.Color.dark_grey()
 
 
 class System(commands.Cog):
