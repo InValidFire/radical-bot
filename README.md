@@ -7,7 +7,7 @@
     - **Restart the server**
     - **Run commands on the server**
 - Manage Minecraft server backups
-    - Automatically enable RCON on server creation
+    - **Automatically enable RCON and sign EULA**
     - **Create backups**
     - Restore backups
     - **Automatically create backups on a timer**
@@ -25,3 +25,6 @@
     - List datapacks
     - Datapack addition/removal
     - Datapack updating
+- Manage Minecraft modpack
+    - post updates
+    - get link
