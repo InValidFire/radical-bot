@@ -10,8 +10,9 @@ import aiohttp.web
 import aiofiles
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
+from ..properties import Properties
 from ..mcrcon import run_command
 from ..bot import MainBot
 
@@ -39,6 +40,7 @@ async def _download_file(url: str, file_path: Path):
 
 
 async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -> discord.Embed:
+    # too many stairs, refactor this
     embed = MinecraftEmbed(title="Server Status")
     if bot.server_process is None or bot.server_process.poll() is not None:
         if not Path(bot.config.minecraft.server_dir.joinpath("server.jar")).exists():
@@ -47,17 +49,30 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
             if interaction is not None and not interaction.is_expired():
                 await interaction.response.send_message(embed=embed)
             return embed
-        if not Path(bot.config.minecraft.server_dir.joinpath("eula.txt")).exists():
-            logger.error("EULA not accepted, automatically accepting.")
-            bot.config.minecraft.server_dir.joinpath("eula.txt").write_text("eula=true")
-            embed.add_field(name="EULA", value="accepted")
+        if bot.config.minecraft.server_dir.joinpath("server.properties").exists():
+            properties = Properties(bot.config.minecraft.server_dir.joinpath("server.properties"))
+            logger.log(logging.DEBUG, "Properties: %s", properties)
+            if properties['enable-rcon'] is not True:
+                embed.description = "RCON is not enabled. Please enable RCON with the '/server setup' command."
+                if interaction is not None and not interaction.is_expired():
+                    await interaction.response.send_message(embed=embed)
+                return embed
+        if bot.config.minecraft.server_dir.joinpath("eula.txt").exists():
+            eula = Properties(bot.config.minecraft.server_dir.joinpath("eula.txt"))
+            if eula["eula"] is not True:
+                embed.description = "EULA not signed. Please sign the EULA with the '/server setup' command."
+                logger.error("EULA not signed.")
+                if interaction is not None and not interaction.is_expired():
+                    await interaction.response.send_message(embed=embed)
+                return embed
+        else:
+            embed.description = "Initializing server... Please run the '/server setup' command."
         bot.server_process = subprocess.Popen(
             ["java", f"-Xmx{bot.config.minecraft.server_ram}",
              f"-Xms{bot.config.minecraft.server_ram}",
              "-jar", "server.jar", "nogui"], cwd=bot.config.minecraft.server_dir)
         embed.add_field(name="Server", value="started")
         logger.info("Server started.")
-        await bot.change_presence(status=discord.Status.online, activity=discord.Game(name="Minecraft"))
         if interaction is not None and not interaction.is_expired():
             await interaction.response.send_message(embed=embed)
         return embed
@@ -66,6 +81,31 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
         logger.info("Server is already running.")
         if interaction is not None and not interaction.is_expired():
             await interaction.response.send_message(embed=embed)
+    return embed
+
+
+async def _setup(bot: MainBot) -> discord.Embed:
+    embed = MinecraftEmbed(title="Server Setup")
+    eula_path = bot.config.minecraft.server_dir.joinpath("eula.txt")
+    if eula_path.exists():
+        eula = Properties(eula_path)
+        eula["eula"] = "true"
+        eula.save()
+        logger.info("EULA signed.")
+        embed.add_field(name="EULA", value="signed")
+    if bot.config.minecraft.server_dir.joinpath("server.properties").exists():
+        properties = Properties(bot.config.minecraft.server_dir.joinpath("server.properties"))
+        properties["enable-rcon"] = "true"
+        properties["rcon.password"] = bot.config.minecraft.rcon.password
+        properties["rcon.port"] = str(bot.config.minecraft.rcon.port)
+        try:
+            properties.save()
+        except Exception as e:
+            embed.add_field(name="RCON", value="failed")
+            logger.error("Failed to enable RCON: %s", e)
+            return embed
+        logger.info("RCON enabled.")
+        embed.add_field(name="RCON", value="enabled")
     return embed
 
 
@@ -103,8 +143,13 @@ async def _stop_server(bot: MainBot, interaction: discord.Interaction = None) ->
             await interaction.edit_original_response(embed=embed)
         return embed
     else:
-        embed.description = "Server is not running."
-        logger.info("Server is not running.")
+        if interaction is not None and not interaction.is_expired():
+            embed.description = "Server is not running."
+            logger.info("Server is not running.")
+            if interaction.response.is_done():
+                await interaction.edit_original_response(embed=embed)
+            else:
+                await interaction.response.send_message(embed=embed)
     return embed
 
 
@@ -115,7 +160,7 @@ async def _update_server(bot: MainBot, url: str, interaction: discord.Interactio
         embed.description = "Server is running. Please stop the server before updating."
         logger.info("Server is running. Please stop the server before updating.")
         if interaction is not None and not interaction.is_expired():
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
         return embed
     embed.description = "Updating server.."
     if interaction is not None and not interaction.is_expired():
@@ -153,6 +198,7 @@ class MinecraftServer(commands.Cog):
     def __init__(self, bot: MainBot) -> None:
         self.bot = bot
         self.bot.config.minecraft.server_dir.mkdir(parents=True, exist_ok=True)
+        self.check_server.start()
 
     server_group = app_commands.Group(name="server", description="Minecraft server commands.",
                                       default_permissions=discord.Permissions(manage_guild=True))
@@ -214,17 +260,31 @@ class MinecraftServer(commands.Cog):
         embed.description = f"{stop_embed.description}\n{start_embed.description}"
         await interaction.response.send_message(embed=embed)
 
+    @server_group.command(name="setup", description="Setup the Minecraft server.")
+    async def setup_server(self, interaction: discord.Interaction) -> None:
+        embed = await _setup(self.bot)
+        embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.avatar.url)
+        await interaction.response.send_message(embed=embed)
+
     async def cog_load(self):
         embed = await _start_server(self.bot)
-        embed.description = "Bot started! Will attempt to start the server."
+        embed.title = "Loading Server Cog - Starting Server"
         await self.bot.config.discord.bot_channel.send(embed=embed)
+
+    async def cog_unload(self):
+        embed = await _stop_server(self.bot)
+        embed.title = "Unloading Server Cog - Stopping Server"
+        self.check_server.cancel()
+        await self.bot.config.discord.bot_channel.send(embed=embed)
+
+    @tasks.loop(seconds=5)
+    async def check_server(self):
+        if self.bot.server_process is not None and self.bot.server_process.poll() is None:
+            await self.bot.change_presence(status=discord.Status.online, activity=discord.Game(name="Minecraft"))
+        else:
+            self.bot.server_process = None  # just in case
+            await self.bot.change_presence(status=discord.Status.idle, activity=discord.Game(name="with your heart."))
 
 
 async def setup(bot: MainBot) -> None:
     await bot.add_cog(MinecraftServer(bot), guilds=bot.guilds)
-
-
-async def teardown(bot: MainBot) -> None:
-    embed = await _stop_server(bot)
-    embed.title = "Unloading Server Cog"
-    await bot.config.discord.bot_channel.send(embed=embed)
