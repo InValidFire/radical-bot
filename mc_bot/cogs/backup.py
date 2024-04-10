@@ -1,5 +1,5 @@
 from zipfile import ZipFile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 import logging
@@ -263,6 +263,8 @@ class BackupCog(commands.Cog):
         self.bot = bot
         self.bot.config.minecraft.backup_dir.mkdir(parents=True, exist_ok=True)
 
+    backup_time = datetime.time(hour=4, minute=0, second=0, tzinfo=timezone.utc)  # midnight EST
+
     backup_group = app_commands.Group(name="backups", description="Backup commands.",
                                       default_permissions=discord.Permissions(manage_guild=True))
 
@@ -299,7 +301,7 @@ class BackupCog(commands.Cog):
         embed = await _restore_backup(self.bot, backup)
         await ctx.send(embed=embed, ephemeral=True)
 
-    @tasks.loop(hours=24)
+    @tasks.loop(time=backup_time)
     async def backup_loop(self) -> None:
         logger.info("Starting routine backup process.")
         embed = await _create_backup(self.bot)
