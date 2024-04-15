@@ -81,11 +81,11 @@ async def _delete_backups(bot: MainBot, location: str,
     if location == "local":
         backups = get_local_backups(bot.config.minecraft)
         view = SelectView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
-                          embed, _delete_local_backup_callback)
+                          embed, _delete_local_backup_callback, multi_select=True)
     elif location == "cloud":
         backups = await get_cloud_backups(bot.config.cloud)
         view = SelectView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
-                          embed, _delete_cloud_backup_callback)
+                          embed, _delete_cloud_backup_callback, multi_select=True)
     if len(backups) == 0:
         embed.description = "No backups found."
     else:

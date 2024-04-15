@@ -27,13 +27,18 @@ class Dropdown(discord.ui.Select):
 class SelectView(discord.ui.View):
     #  TODO: Create a way to paginate the items and expose the full backup count even beyond Discord's initial limits.
     # if a selection_handler is provided, a dropdown will be added to the view.
-    def __init__(self, items: dict[str, str], embed: discord.Embed, selected_handler: callable):
+    def __init__(self, items: dict[str, str], embed: discord.Embed, selected_handler: callable,
+                 multi_select: bool = False):
         super().__init__()
         self.embed = embed
         self.page_size = 10
         self.page_count = max(ceil(len(items) / self.page_size), 1)  # ensure at least one page
         self.page_index = 0
         self.items = items
+        if multi_select:
+            self.max_values = self.page_size
+        else:
+            self.max_values = 1
 
         if self.page_count > 1:
             self.embed.set_footer(text=f"Page {self.page_index + 1}/{self.page_count}")
@@ -49,7 +54,7 @@ class SelectView(discord.ui.View):
         self.add_item(Dropdown(
             options=all_options[self.page_index*self.page_size:(self.page_index*self.page_size)+self.page_size],
             selected_handler=selected_handler, embed=embed,
-            max_values=self.page_size))
+            max_values=self.max_values))
 
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
