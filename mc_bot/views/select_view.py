@@ -104,3 +104,8 @@ class SelectView(discord.ui.View):
             await interaction.response.edit_message(embed=self.embed, view=self)
         except Exception as e:
             logger.error("Failed to update message: %s", e)
+
+    async def disable(self) -> None:
+        for item in self.children:
+            item.disabled = True
+        await self.message.edit(view=self)

@@ -2,6 +2,10 @@ import logging
 import asyncio
 from datetime import datetime
 from pathlib import Path
+
+import aiohttp
+import aiofiles
+
 from .config import Cloud
 
 logger = logging.getLogger(__file__)
@@ -21,6 +25,17 @@ async def upload_backup(aws_config: Cloud, backup_path: Path):
     command = ("s3", "cp", str(backup_path),
                f"s3://{aws_config.bucket_name}/{backup_path.name}", "--acl", "public-read")
     await __run_aws_command(aws_config, command)
+
+
+async def download_backup(cloud_config, backup_name: str, backup_file: Path) -> None:
+    """Download a backup from an S3 bucket."""
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{cloud_config.endpoint_url}/{cloud_config.bucket_name}/{backup_name}") as response:
+            if response.status != 200:
+                raise Exception(f"Failed to download backup: {response.status}")
+            async with aiofiles.open(backup_file, "wb") as file:
+                async for chunk in response.content.iter_chunked(1024):
+                    await file.write(chunk)
 
 
 async def delete_cloud_backup(aws_config: Cloud, backup_name: str):

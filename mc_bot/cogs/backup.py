@@ -13,7 +13,7 @@ import discord
 from ..views.select_view import SelectView
 from ..views.page_view import PageView
 from ..filesystem import zip_directory, delete_local_backup, get_local_backups
-from ..aws import upload_backup, get_cloud_backups, delete_cloud_backup
+from ..aws import upload_backup, get_cloud_backups, delete_cloud_backup, download_backup
 from ..mcrcon import run_command
 from ..bot import MainBot
 
@@ -187,31 +187,93 @@ async def _create_backup(bot: MainBot, interaction: discord.Interaction = None, 
     return embed
 
 
-async def _restore_backup(bot: MainBot, backup_file: Path,
-                          interaction: discord.Interaction = None) -> discord.Embed:
-    embed = BackupEmbed(title="Restoring Backup")
-    if bot.server_process is None:
-        embed.add_field(name="Status", value="restoring")
-        if not backup_file.exists():
+async def _restore_backup(bot: MainBot, location: str,
+                          interaction: discord.Interaction = None) -> tuple[discord.Embed, discord.ui.View]:
+    """Restore a backup of the Minecraft server."""
+    async def _restore_local_backup(interaction: discord.Interaction, value: list[Path],
+                                    embed: discord.Embed) -> discord.Embed:
+        await view.disable()
+        if len(value) != 1:  # should only ever be one value, what would it mean to restore multiple backups?
+            raise ValueError("Invalid backup selection.")
+        value = Path(value[0])
+        if bot.config.minecraft.backup_dir not in value.parents:  # ensure the path is in the backup directory
+            value = bot.config.minecraft.backup_dir.joinpath(value)
+        value: Path
+        if not value.exists():  # ensure the backup file exists, this should never happen logically
             embed.set_field_at(0, name="Status", value="file not found")
             if interaction is not None and not interaction.is_expired():
-                await interaction.response.edit_message(embed=embed)
-            logger.info("Backup file not found: %s", backup_file)
-            return
+                await interaction.edit_original_response(embed=embed)
+            logger.info("Backup file not found: %s", value)
+            return embed
+
+        embed.set_field_at(0, name="Status", value="restoring")
+        embed.description = "This may take a bit."
+        embed.set_footer(text=value.name)
         if interaction is not None and not interaction.is_expired():
             await interaction.response.send_message(embed=embed)
-        logger.info("Restoring server backup: %s", backup_file)
-        backup_zip = ZipFile(backup_file)
-        shutil.rmtree(bot.config.minecraft.server_dir)
-        backup_zip.extractall(bot.config.minecraft.server_dir)
-        embed.set_field_at(0, name="Status", value="restored")
+        logger.info("Restoring server backup: %s", value)
+        try:
+            backup_zip = ZipFile(value)
+            if bot.config.minecraft.server_dir.exists():
+                shutil.rmtree(bot.config.minecraft.server_dir)
+            bot.config.minecraft.server_dir.mkdir()
+            backup_zip.extractall(bot.config.minecraft.server_dir)
+            embed.set_field_at(0, name="Status", value="restored")
+            embed.description = "Thanks for waiting! The backup has been restored."
+        except Exception as e:
+            logger.error("Failed to restore backup: %s", e)
+            embed.set_field_at(0, name="Status", value="failed")
+            embed.add_field(name="Error", value=str(e))
         if interaction is not None and not interaction.is_expired():
-            await interaction.response.edit_message(embed=embed)
+            await interaction.edit_original_response(embed=embed)
         logger.info("Server backup restored.")
-    else:
-        embed.set_field_at(0, name="Status", value="server running, aborted")
+
+    async def _restore_cloud_backup(interaction: discord.Interaction, value: list[str],
+                                    embed: discord.Embed) -> discord.Embed:
+        await view.disable()
+        if len(value) != 1:  # should only ever be one value, doesn't make sense to have more
+            raise ValueError("Invalid backup selection.")
+        value = value[0]
+        logger.info("Restoring backup from S3: %s", value)
+        backup_file = bot.config.minecraft.backup_dir.joinpath(value)
+        if not backup_file.exists():
+            embed.set_field_at(0, name="Status", value="downloading")
+            if interaction is not None and not interaction.is_expired():
+                await interaction.response.edit_message(embed=embed)
+            await download_backup(bot.config.cloud, value, backup_file)
+        embed = await _restore_local_backup(interaction, [backup_file], embed)  # efficiency baby :)
+        return embed
+
+    view = None
+    embed = BackupEmbed(title="Restoring Backup")
+    if bot.server_process is not None:
+        embed.description = "A backup cannot be restored while the server is running."
         logger.info("A backup cannot be restored while the server is running.")
-    return embed
+        if interaction is not None and not interaction.is_expired():
+            await interaction.response.send_message(embed=embed, view=None, ephemeral=True)
+        return embed, view
+    embed.add_field(name="Status", value="fetching")
+    if interaction is not None:
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    if location == "local":
+        embed.set_footer(text="Local Files")
+        backups = get_local_backups(bot.config.minecraft)
+        view = SelectView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
+                          embed, _restore_local_backup)
+    elif location == "cloud":
+        embed.set_footer(text="Cloud Files")
+        backups = await get_cloud_backups(bot.config.cloud)
+        view = SelectView({f"{backup[1]} - {backup[2]}": backup[0] for backup in backups},
+                          embed, _restore_cloud_backup)
+    if len(backups) == 0:
+        embed.description = "No backups found."
+    else:
+        embed.description = "Select the backup you would like to restore."
+        embed.set_field_at(0, name="Status", value="ready")
+    if interaction is not None:
+        await interaction.edit_original_response(embed=embed, view=view)
+        view.message = await interaction.original_response()
+    return embed, view
 
 
 async def _get_cloud_backups(bot: MainBot, embed: discord.Embed) -> tuple[discord.Embed, discord.ui.View]:
@@ -227,7 +289,7 @@ async def _get_cloud_backups(bot: MainBot, embed: discord.Embed) -> tuple[discor
         embed.description = ""
         if len(backups) == 0:
             embed.description = "No backups found."
-            return embed, view
+            return embed, None
         for backup in backups:  # have this set in the view so we don't have to write this twice
             embed.description += f"\n- **{backup[1]}** - **{backup[2]}** - {backup[3]}"
     except Exception as e:
@@ -248,7 +310,7 @@ async def _get_backups(bot: MainBot, location: Literal['cloud', 'local'],
         view = PageView([f"**{backup[1]}** - **{backup[2]}** - {backup[3]}" for backup in backups], embed)
         if len(backups) == 0:
             embed.description = "No backups found."
-            return embed, view
+            return embed, None
         for backup in backups:
             backup_date, backup_time, backup_size = backup[1:]
             embed.description += f"\n- **{backup_date}** - **{backup_time}** - {backup_size} MiB"
@@ -297,11 +359,8 @@ class BackupCog(commands.Cog):
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
     @backup_group.command(name="restore", description="Restore a backup.")
-    async def restore_backup(self, ctx: discord.Interaction, backup_name: str,
-                             location: Literal['cloud', 'local']) -> None:
-        backup = self.bot.config.minecraft.backup_dir.joinpath(backup_name)
-        embed = await _restore_backup(self.bot, backup)
-        await ctx.send(embed=embed, ephemeral=True)
+    async def restore_backup(self, interaction: discord.Interaction, location: Literal['cloud', 'local']) -> None:
+        await _restore_backup(self.bot, location, interaction)
 
     @tasks.loop(time=backup_time)
     async def backup_loop(self) -> None:
