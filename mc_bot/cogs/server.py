@@ -49,14 +49,6 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
             if interaction is not None and not interaction.is_expired():
                 await interaction.response.send_message(embed=embed)
             return embed
-        worlds = [world for world in bot.config.minecraft.server_dir.glob("world*") if world.is_dir()]
-        for world in worlds:
-            if world.joinpath("session.lock").exists():
-                embed.description = "Lock file found. Server is already running."
-                logger.info("Lock file found. Server is already running.")
-                if interaction is not None and not interaction.is_expired():
-                    await interaction.response.send_message(embed=embed)
-                return embed
         if bot.config.minecraft.server_dir.joinpath("server.properties").exists():
             properties = Properties(bot.config.minecraft.server_dir.joinpath("server.properties"))
             logger.log(logging.DEBUG, "Properties: %s", properties)
@@ -137,7 +129,7 @@ async def _stop_server(bot: MainBot, interaction: discord.Interaction = None) ->
         logger.info("Stopping server..")
         embed.description = "Stopping server.."
         if interaction is not None and not interaction.is_expired():
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
         try:
             await _run_command(bot, "stop")
             return_code = bot.server_process.wait()
@@ -280,10 +272,11 @@ class MinecraftServer(commands.Cog):
         await self.bot.config.discord.bot_channel.send(embed=embed)
 
     async def cog_unload(self):
-        embed = await _stop_server(self.bot)
-        embed.title = "Unloading Server Cog - Stopping Server"
+        if self.bot.server_process is not None and self.bot.server_process.poll() is None:
+            embed = await _stop_server(self.bot)
+            embed.title = "Unloading Server Cog - Stopping Server"
+            await self.bot.config.discord.bot_channel.send(embed=embed)
         self.check_server.cancel()
-        await self.bot.config.discord.bot_channel.send(embed=embed)
 
     @tasks.loop(seconds=5)
     async def check_server(self):
