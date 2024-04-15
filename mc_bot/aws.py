@@ -47,7 +47,8 @@ async def get_cloud_backups(aws_config: Cloud) -> list:
         backup_link = f"{aws_config.endpoint_url}/{aws_config.bucket_name}/{backup_name}"
         backup_link = f"[{backup_size} MiB]({backup_link})"
         backups.append((backup_name, backup_date, backup_time, backup_link))
-    logger.info("Cloud backups [%s]: %s", len(backups), backups)
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Got cloud backups: %s", backups)
     return backups
 
 

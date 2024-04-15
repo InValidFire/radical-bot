@@ -1,5 +1,5 @@
 from zipfile import ZipFile
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 from pathlib import Path
 import shutil
 import logging
@@ -218,6 +218,8 @@ async def _get_cloud_backups(bot: MainBot, embed: discord.Embed) -> tuple[discor
     try:
         for field in fields(bot.config.cloud):
             if getattr(bot.config.cloud, field.name) is None:
+                if logger.isEnabledFor(logging.WARN):
+                    logger.warn("Cloud storage not configured.")
                 embed.description = "Cloud storage not configured."
                 return embed, None
         backups = await get_cloud_backups(bot.config.cloud)
@@ -263,7 +265,7 @@ class BackupCog(commands.Cog):
         self.bot = bot
         self.bot.config.minecraft.backup_dir.mkdir(parents=True, exist_ok=True)
 
-    backup_time = datetime.time(hour=4, minute=0, second=0, tzinfo=timezone.utc)  # midnight EST
+    backup_time = time(hour=4, minute=0, second=0, tzinfo=timezone.utc)  # midnight EST
 
     backup_group = app_commands.Group(name="backups", description="Backup commands.",
                                       default_permissions=discord.Permissions(manage_guild=True))
