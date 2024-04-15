@@ -7,8 +7,17 @@ logger = logging.getLogger(__file__)
 
 
 class PageView(discord.ui.View):
-    #  TODO: Create a way to paginate the items and expose the full backup count even beyond Discord's initial limits.
-    # if a selection_handler is provided, a dropdown will be added to the view.
+    """A view that paginates a list of items in an embed.
+
+    This view is intended to be used with a message that contains an embed.
+
+    Attributes:
+        embed (discord.Embed): The embed that will be updated with the items.
+        page_size (int): The number of items to display on each page.
+        page_count (int): The total number of pages.
+        page_index (int): The current page index.
+        items (list[str]): The list of items to paginate.
+    """
     def __init__(self, items: list[str], embed: discord.Embed):
         super().__init__()
         self.embed = embed
