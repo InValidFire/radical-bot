@@ -283,7 +283,6 @@ class MinecraftServer(commands.Cog):
         if self.bot.server_process is not None and self.bot.server_process.poll() is None:
             await self.bot.change_presence(status=discord.Status.online, activity=discord.Game(name="Minecraft"))
         else:
-            self.bot.server_process = None  # just in case
             await self.bot.change_presence(status=discord.Status.idle, activity=discord.Game(name="with your heart."))
 
 
