@@ -49,6 +49,14 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
             if interaction is not None and not interaction.is_expired():
                 await interaction.response.send_message(embed=embed)
             return embed
+        worlds = [world for world in bot.config.minecraft.server_dir.glob("world*") if world.is_dir()]
+        for world in worlds:
+            if world.joinpath("session.lock").exists():
+                embed.description = "Lock file found. Server is already running."
+                logger.info("Lock file found. Server is already running.")
+                if interaction is not None and not interaction.is_expired():
+                    await interaction.response.send_message(embed=embed)
+                return embed
         if bot.config.minecraft.server_dir.joinpath("server.properties").exists():
             properties = Properties(bot.config.minecraft.server_dir.joinpath("server.properties"))
             logger.log(logging.DEBUG, "Properties: %s", properties)
