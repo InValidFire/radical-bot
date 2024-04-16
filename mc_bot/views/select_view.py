@@ -109,3 +109,4 @@ class SelectView(discord.ui.View):
         for item in self.children:
             item.disabled = True
         await self.message.edit(view=self)
+        self.stop()

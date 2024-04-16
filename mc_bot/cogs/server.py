@@ -5,6 +5,8 @@ This module provides functionality for the Minecraft server.
 import logging
 from pathlib import Path
 import subprocess
+import shutil
+
 import aiohttp
 import aiohttp.web
 import aiofiles
@@ -12,6 +14,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
+from ..views.confirm_view import ConfirmView
 from ..properties import Properties
 from ..mcrcon import run_command
 from ..bot import MainBot
@@ -37,6 +40,42 @@ async def _download_file(url: str, file_path: Path):
                 return file_path
             else:
                 return None
+
+
+async def _delete_server(bot: MainBot, interaction: discord.Interaction):
+    async def _cancel_callback(interaction: discord.Interaction, button: discord.ui.Button, embed: discord.Embed):
+        embed.description = "Server directory deletion canceled."
+        logger.info("Server directory deletion canceled.")
+        await interaction.response.edit_message(embed=embed)
+
+    async def _delete_server_callback(interaction: discord.Interaction, button: discord.ui.Button,
+                                      embed: discord.Embed):
+        embed.description = "Deleting server directory.."
+        await interaction.response.edit_message(embed=embed)
+        logger.info("Deleting server directory..")
+        try:
+            shutil.rmtree(bot.config.minecraft.server_dir)
+            embed.description = "Server directory deleted."
+            logger.info("Server directory deleted.")
+        except OSError as e:
+            embed.description = f"Failed to delete server directory: {e}"
+            logger.error("Failed to delete server directory: %s", e)
+        await interaction.edit_original_response(embed=embed)
+
+    embed = MinecraftEmbed(title="Delete Server Directory")
+    if bot.server_process is not None and bot.server_process.poll() is None:
+        embed.description = "Server is running. Please stop the server before deleting the server directory."
+        logger.error("Server is running. Please stop the server before deleting the server directory.")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+    if bot.config.minecraft.server_dir.exists():
+        view = ConfirmView(embed=embed, confirm_callback=_delete_server_callback, cancel_callback=_cancel_callback)
+        embed.description = "Are you sure you want to delete the server directory?"
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        view.message = await interaction.original_response()
+    else:
+        embed.description = "Server directory not found."
+        logger.error("Server directory not found.")
 
 
 async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -> discord.Embed:
@@ -265,6 +304,11 @@ class MinecraftServer(commands.Cog):
         embed = await _setup(self.bot)
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.avatar.url)
         await interaction.response.send_message(embed=embed)
+
+    @commands.has_permissions(administrator=True)
+    @server_group.command(name="delete", description="Delete the Minecraft server directory.")
+    async def delete_server(self, interaction: discord.Interaction) -> None:
+        await _delete_server(self.bot, interaction)
 
     async def cog_load(self):
         embed = await _start_server(self.bot)

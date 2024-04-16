@@ -5,9 +5,9 @@
     - **Start/stop the server**
     - **Update the server**
     - **Restart the server**
-    - Delete the server
+    - **Delete the server**
     - **Run commands on the server**
-- Manage Minecraft server backups
+- **Manage Minecraft server backups**
     - **Automatically enable RCON and sign EULA**
     - **Create backups**
     - **Restore backups**
