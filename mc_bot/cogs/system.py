@@ -51,7 +51,11 @@ class System(commands.Cog):
                    globally: bool = False) -> None:
         if guild_id is None and not globally:
             guild_id = interaction.guild.id
-        embed = await _sync_commands(self.bot, guild_id)
+        try:
+            embed = await _sync_commands(self.bot, guild_id)
+        except Exception as e:
+            embed = SystemEmbed(title="Error")
+            embed.description = f"An error occurred: {e}"
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
