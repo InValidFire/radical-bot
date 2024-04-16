@@ -34,6 +34,11 @@
     - post updates
     - get link
 
+To-Do:
+    - Refactor backups to use class objects
+    - Refactor command handling back into cogs; remove optional interaction parameter; simplify code
+    - Add an admin-channel where bot logs are sent, ie, updates, server stops/starts, etc
+
 Future Plans?
 - Multi-world support?
     - Similar to Realms functionality?
