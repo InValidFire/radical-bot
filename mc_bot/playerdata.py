@@ -1,5 +1,6 @@
 from pathlib import Path
 from uuid import UUID
+from typing import Union
 import json
 
 import aiofiles
@@ -28,11 +29,13 @@ is_whitelisted={self.is_whitelisted})"
                 "is_whitelisted": self.is_whitelisted}
 
     @classmethod
-    def from_dict(cls, data: dict[str, str]) -> 'Player':
+    def from_dict(cls, data: dict[str, str] | None) -> 'Player':
+        if data is None:
+            return None
         return cls(UUID(data['uuid']), data['mc_username'], data['is_trusted'], data['is_whitelisted'])
 
     @classmethod
-    async def lookup_player(cls, query: str) -> 'Player' | None:
+    async def lookup_player(cls, query: str) -> Union['Player', None]:
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://playerdb.co/api/player/minecraft/{query}') as resp:
                 if resp.status == 204:
@@ -60,71 +63,72 @@ class PlayerData:
     def __str__(self):
         return str(self._playerdata)
 
-    def is_whitelisted(self, discord_id: int) -> bool:
+    def is_whitelisted(self, discord_id: str) -> bool:
         return discord_id in self._playerdata
 
-    async def add(self, discord_id: int, query: str):
+    async def save(self):
+        async with aiofiles.open(self.file_path, 'w') as f:
+            await f.write(json.dumps(self._playerdata, indent=4))
+
+    async def add(self, discord_id: str, query: str):
         player = await Player.lookup_player(query)
         if player is None:
-            raise ValueError(f"Player '{query}' not found.")
+            raise ValueError("Player not found.")
         self._playerdata[discord_id] = player.as_dict()
-        async with aiofiles.open(self.file_path, 'a') as f:
-            await f.write(json.dumps(self._playerdata))
+        self.save()
 
-    async def whitelist(self, discord_id: int):
+    async def whitelist(self, discord_id: str):
         player = Player.from_dict(self._playerdata[discord_id])
         if player is None:
-            raise ValueError(f"Player '{discord_id}' not found.")
+            raise ValueError("Player not found in player data.")
         player.is_whitelisted = True
         self._playerdata[discord_id] = player.as_dict()
 
-        async with aiofiles.open(self.file_path, 'w') as f:
-            await f.write(json.dumps(self._playerdata))
+        self.save()
         await run_command(f"whitelist add {player.mc_username}", self.rcon_config)
 
-    async def unwhitelist(self, discord_id: int):
+    async def unwhitelist(self, discord_id: str):
         player = Player.from_dict(self._playerdata[discord_id])
         if player is None:
-            raise ValueError(f"Player '{discord_id}' not found.")
+            raise ValueError("Player not found in player data.")
         player.is_whitelisted = False
         self._playerdata[discord_id] = player.as_dict()
 
-        async with aiofiles.open(self.file_path, 'w') as f:
-            await f.write(json.dumps(self._playerdata))
+        self.save()
         await run_command(f"whitelist remove {player.mc_username}", self.rcon_config)
 
-    async def trust(self, discord_id: int):
+    async def trust(self, discord_id: str):
         player = Player.from_dict(self._playerdata[discord_id])
         if player is None:
-            raise ValueError(f"Player '{discord_id}' not found.")
+            raise ValueError("Player not found in player data.")
         player.is_trusted = True
         self._playerdata[discord_id] = player.as_dict()
 
-        async with aiofiles.open(self.file_path, 'w') as f:
-            await f.write(json.dumps(self._playerdata))
+        self.save()
 
-    async def untrust(self, discord_id: int):
+    async def untrust(self, discord_id: str):
         player = Player.from_dict(self._playerdata[discord_id])
         if player is None:
-            raise ValueError(f"Player '{discord_id}' not found.")
+            raise ValueError("Player not found in player data.")
         player.is_trusted = False
         self._playerdata[discord_id] = player.as_dict()
 
-        async with aiofiles.open(self.file_path, 'w') as f:
-            await f.write(json.dumps(self._playerdata))
+        self.save()
 
-    async def remove(self, discord_id: int):
+    async def remove(self, discord_id: str):
         player = Player.from_dict(self._playerdata.pop(discord_id, None))
         if player is None:
-            raise ValueError(f"Player '{discord_id}' not found.")
+            raise ValueError("Player not found in player data.")
         if player.is_whitelisted:
             await run_command(f"whitelist remove {player.mc_username}", self.rcon_config)
 
-        async with aiofiles.open(self.file_path, 'w') as f:
-            await f.write(json.dumps(self._playerdata))
+        self.save()
 
-    def get(self, discord_id: int) -> Player | None:
-        return Player.from_dict(self._playerdata.get(discord_id, None))
+    def get(self, discord_id: str) -> Player | None:
+        player = Player.from_dict(self._playerdata.get(discord_id, None))
+        if player is None:
+            raise ValueError("Player not found in player data.")
+        return player
 
     def get_all(self) -> list[tuple[int, Player]]:
-        return [(k, Player.from_dict(v)) for k, v in self._playerdata.items()]
+        return [(int(k), Player.from_dict(v)) for k, v in self._playerdata.items()]
