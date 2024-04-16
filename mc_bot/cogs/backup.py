@@ -210,7 +210,10 @@ async def _restore_backup(bot: MainBot, location: str,
         embed.description = "This may take a bit."
         embed.set_footer(text=value.name)
         if interaction is not None and not interaction.is_expired():
-            await interaction.response.send_message(embed=embed)
+            if interaction.response.is_done():
+                await interaction.edit_original_response(embed=embed)
+            else:
+                await interaction.response.send_message(embed=embed)
         logger.info("Restoring server backup: %s", value)
         try:
             backup_zip = ZipFile(value)
