@@ -293,8 +293,7 @@ async def _get_cloud_backups(bot: MainBot, embed: discord.Embed) -> tuple[discor
         if len(backups) == 0:
             embed.description = "No backups found."
             return embed, None
-        for backup in backups:  # have this set in the view so we don't have to write this twice
-            embed.description += f"\n- **{backup[1]}** - **{backup[2]}** - {backup[3]}"
+        await view.build_embed()
     except Exception as e:
         logger.error("Failed to get backups: %s", e)
         embed.description = "Failed to get backups."
@@ -310,13 +309,11 @@ async def _get_backups(bot: MainBot, location: Literal['cloud', 'local'],
         embed.description = ""
         embed.set_footer(text="Local Files")
         backups = get_local_backups(bot.config.minecraft)
-        view = PageView([f"**{backup[1]}** - **{backup[2]}** - {backup[3]}" for backup in backups], embed)
+        view = PageView([f"**{backup[1]}** - **{backup[2]}** - {backup[3]} MiB" for backup in backups], embed)
         if len(backups) == 0:
             embed.description = "No backups found."
             return embed, None
-        for backup in backups:
-            backup_date, backup_time, backup_size = backup[1:]
-            embed.description += f"\n- **{backup_date}** - **{backup_time}** - {backup_size} MiB"
+        await view.build_embed()
     elif location == "cloud":
         embed.description = "Fetching backups..."
         embed.set_footer(text="Cloud Files")

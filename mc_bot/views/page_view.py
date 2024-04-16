@@ -67,11 +67,16 @@ class PageView(discord.ui.View):
 
     async def update_message(self, interaction: discord.Interaction) -> None:
         try:
-            items = self.items[self.page_index*self.page_size:(self.page_index*self.page_size)+self.page_size]
-            self.embed.description = ""
-            for item in items:
-                self.embed.description += f"\n- {item}"
+            await self.build_embed()
             self.embed.set_footer(text=f"Page {self.page_index + 1}/{self.page_count}")
             await interaction.response.edit_message(embed=self.embed, view=self)
         except Exception as e:
             logger.error("Failed to update message: %s", e)
+
+    async def build_embed(self) -> discord.Embed:
+        """Build the embed with the items for the current page."""
+        self.embed.description = ""
+        items = self.items[self.page_index*self.page_size:(self.page_index*self.page_size)+self.page_size]
+        for item in items:
+            self.embed.description += f"\n- {item}"
+        return self.embed
