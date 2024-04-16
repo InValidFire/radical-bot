@@ -8,6 +8,7 @@ import discord
 
 from .config import load_config
 from .git import align_tag_version, get_version_hash
+from .playerdata import PlayerData
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class MainBot(commands.Bot):
         super().__init__(*args, **kwargs)
         self.config = load_config(self, config_file)
         self.server_process: subprocess.Popen | None = None
+        self.player_data = PlayerData(Path("data/playerdata.json"), self.config.minecraft.rcon)
         if not Path("data").exists():
             Path("data").mkdir()
 
