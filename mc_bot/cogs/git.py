@@ -22,9 +22,8 @@ class Git(commands.Cog):
     def __init__(self, bot: MainBot) -> None:
         self.bot = bot
 
-    git_group = app_commands.Group(name="git", description="Git commands.")
-
-    @git_group.command(name="update", description="Update the bot via Git.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="git_update", description="Update the bot via Git.")
     async def update_cmd(self, interaction: discord.Interaction, branch: str = "main") -> None:
         embed = GitEmbed(title="Updating...")
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
@@ -45,7 +44,8 @@ class Git(commands.Cog):
         await interaction.edit_original_response(embed=embed)
         await self.bot.close()  # restart the bot, systemd will handle the rest
 
-    @git_group.command(name="branches", description="Get all branches in the repository.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="git_branches", description="Get all branches in the repository.")
     async def branches(self, interaction: discord.Interaction) -> None:
         embed = GitEmbed(title="Branches")
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
@@ -62,7 +62,8 @@ class Git(commands.Cog):
         embed.description = "\n".join(branches)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @git_group.command(name="checkout", description="Checkout a branch.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="git_checkout", description="Checkout a branch.")
     async def checkout(self, interaction: discord.Interaction, branch: str) -> None:
         embed = GitEmbed(title=f"Checking out branch {branch}.")
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
@@ -85,7 +86,7 @@ class Git(commands.Cog):
         await interaction.edit_original_response(embed=embed)
         await self.bot.close()  # restart the bot, systemd will handle the rest
 
-    @git_group.command(name="version", description="Get the current version of the bot.")
+    @app_commands.command(name="git_version", description="Get the current version of the bot.")
     async def version(self, interaction: discord.Interaction) -> None:
         embed = GitEmbed(title="Bot Version")
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)

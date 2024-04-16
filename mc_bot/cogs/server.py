@@ -92,25 +92,25 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
             properties = Properties(bot.config.minecraft.server_dir.joinpath("server.properties"))
             logger.log(logging.DEBUG, "Properties: %s", properties)
             if properties['enable-rcon'] is not True:
-                embed.description = "RCON is not enabled. Please enable RCON with the '/server setup' command."
+                embed.description = "RCON is not enabled. Please enable RCON with the '/server_init' command."
                 if interaction is not None and not interaction.is_expired():
                     await interaction.response.send_message(embed=embed)
                 return embed
         if bot.config.minecraft.server_dir.joinpath("eula.txt").exists():
             eula = Properties(bot.config.minecraft.server_dir.joinpath("eula.txt"))
             if eula["eula"] is not True:
-                embed.description = "EULA not signed. Please sign the EULA with the '/server setup' command."
+                embed.description = "EULA not signed. Please sign the EULA with the '/server_init' command."
                 logger.error("EULA not signed.")
                 if interaction is not None and not interaction.is_expired():
                     await interaction.response.send_message(embed=embed)
                 return embed
         else:
-            embed.description = "Initializing server... Please run the '/server setup' command."
+            embed.description = "Initializing server... Please run the '/server_init' command."
         bot.server_process = subprocess.Popen(
             ["java", f"-Xmx{bot.config.minecraft.server_ram}",
              f"-Xms{bot.config.minecraft.server_ram}",
              "-jar", "server.jar", "nogui"], cwd=bot.config.minecraft.server_dir)
-        embed.add_field(name="Server", value="started")
+        embed.description = "Server started successfully."
         logger.info("Server started.")
         if interaction is not None and not interaction.is_expired():
             await interaction.response.send_message(embed=embed)
@@ -239,10 +239,8 @@ class MinecraftServer(commands.Cog):
         self.bot.config.minecraft.server_dir.mkdir(parents=True, exist_ok=True)
         self.check_server.start()
 
-    server_group = app_commands.Group(name="server", description="Minecraft server commands.",
-                                      default_permissions=discord.Permissions(manage_guild=True))
-
-    @server_group.command(name="start", description="Start the Minecraft server.")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.command(name="server_start", description="Start the Minecraft server.")
     async def start_server(self, interaction: discord.Interaction) -> None:
         embed = await _start_server(self.bot)
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.avatar.url)
@@ -251,11 +249,13 @@ class MinecraftServer(commands.Cog):
         else:
             await interaction.response.send_message(embed=embed)
 
-    @server_group.command(name="stop", description="Stop the Minecraft server.")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.command(name="server_stop", description="Stop the Minecraft server.")
     async def stop_server(self, interaction: discord.Interaction) -> None:
         await _stop_server(self.bot, interaction)
 
-    @server_group.command(name="run", description="Send a command to the Minecraft server.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="server_run", description="Send a command to the Minecraft server.")
     async def run_command(self, interaction: discord.Interaction, command: str) -> None:
         embed = await _run_command(self.bot, command)
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.avatar.url)
@@ -277,29 +277,32 @@ class MinecraftServer(commands.Cog):
         else:
             await interaction.response.send_message(embed=embed)
 
-    @server_group.command(name="update", description="Update the Minecraft server.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="server_update", description="Update the Minecraft server.")
     async def update_server(self, interaction: discord.Interaction, url: str) -> None:
         embed = await _update_server(self.bot, url, interaction)
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.avatar.url)
         await interaction.edit_original_response(embed=embed)
 
-    @server_group.command(name="restart", description="Restart the Minecraft server.")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.command(name="server_restart", description="Restart the Minecraft server.")
     async def restart_server(self, interaction: discord.Interaction) -> None:
         stop_embed = await _stop_server(self.bot)
         start_embed = await _start_server(self.bot)
         embed = MinecraftEmbed(title="Server Status", color=discord.Color.green())
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.avatar.url)
         embed.description = f"{stop_embed.description}\n{start_embed.description}"
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @server_group.command(name="setup", description="Setup the Minecraft server.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="server_init", description="Initialize the Minecraft server.")
     async def setup_server(self, interaction: discord.Interaction) -> None:
         embed = await _setup(self.bot)
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.avatar.url)
         await interaction.response.send_message(embed=embed)
 
-    @commands.has_permissions(administrator=True)
-    @server_group.command(name="delete", description="Delete the Minecraft server directory.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="server_delete", description="Delete the Minecraft server directory.")
     async def delete_server(self, interaction: discord.Interaction) -> None:
         await _delete_server(self.bot, interaction)
 

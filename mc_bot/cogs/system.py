@@ -36,30 +36,30 @@ class System(commands.Cog):
     def __init__(self, bot: MainBot) -> None:
         self.bot = bot
 
-    system_group = app_commands.Group(name="system", description="System commands.",
-                                      default_permissions=discord.Permissions(manage_guild=True))
-
-    @system_group.command(name="ping", description="Check the bot's latency.")
+    @app_commands.command(name="ping", description="Check the bot's latency.")
     async def ping(self, interaction: discord.Interaction) -> None:
         embed = SystemEmbed(title="Pong!")
         embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         embed.add_field(name="Latency", value=f"{round(interaction._client.latency * 1000)}ms", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @system_group.command(name="sync", description="Sync the bot commands to discord.")
-    async def sync(self, interaction: discord.Interaction, guild_id: str = None,
+    @commands.command(name="sync", help="Sync application commands to Discord. Takes an optional guild ID.")
+    @commands.guild_only()
+    @commands.is_owner()
+    async def sync(self, ctx: commands.Context, guild_id: str = None,
                    globally: bool = False) -> None:
         if guild_id is None and not globally:
-            guild_id = interaction.guild.id
+            guild_id = ctx.guild.id
         try:
             embed = await _sync_commands(self.bot, guild_id)
         except Exception as e:
             embed = SystemEmbed(title="Error")
             embed.description = f"An error occurred: {e}"
-        embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+        await ctx.send(embed=embed, ephemeral=True)
 
-    @system_group.command(name="restart", description="Shutdown the bot.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="bot_restart", description="Shutdown the bot.")
     async def shutdown(self, interaction: discord.Interaction) -> None:
         #  restarting is handled through systemd, we just need to shut down and clean up
         embed = SystemEmbed(title="Restarting...")

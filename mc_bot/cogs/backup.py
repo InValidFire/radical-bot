@@ -332,10 +332,8 @@ class BackupCog(commands.Cog):
 
     backup_time = time(hour=4, minute=0, second=0, tzinfo=timezone.utc)  # midnight EST
 
-    backup_group = app_commands.Group(name="backups", description="Backup commands.",
-                                      default_permissions=discord.Permissions(manage_guild=True))
-
-    @backup_group.command(name="create", description="Create a backup of the Minecraft server.")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.command(name="backups_create", description="Create a backup of the Minecraft server.")
     async def create_backup(self, interaction: discord.Interaction, upload: bool = True) -> None:
         """
         This command creates a backup of the Minecraft server.
@@ -346,7 +344,8 @@ class BackupCog(commands.Cog):
         else:
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @backup_group.command(name="list", description="Get a list of all backups.")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.command(name="backups_list", description="Get a list of all backups.")
     async def get_backups(self, interaction: discord.Interaction, location: Literal['cloud', 'local']) -> None:
         embed, view = await _get_backups(self.bot, location, interaction)
         if interaction.response.is_done():
@@ -354,14 +353,16 @@ class BackupCog(commands.Cog):
         else:
             await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    @backup_group.command(name="delete", description="Delete a backup.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="backups_delete", description="Delete a backup.")
     async def delete_backup(self, interaction: discord.Interaction, location: Literal['cloud', 'local']) -> None:
         embed, view = await _delete_backups(self.bot, location, interaction)
         if interaction.response.is_done():
             await interaction.edit_original_response(embed=embed, view=view)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    @backup_group.command(name="restore", description="Restore a backup.")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.command(name="backups_restore", description="Restore a backup.")
     async def restore_backup(self, interaction: discord.Interaction, location: Literal['cloud', 'local']) -> None:
         await _restore_backup(self.bot, location, interaction)
 
