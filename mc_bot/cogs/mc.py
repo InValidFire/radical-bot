@@ -42,9 +42,9 @@ class MC(commands.Cog):
             embed = MCEmbed(title="The server is not running.")
         else:
             embed = MCEmbed(title="The server is running.")
-        embed.description = "You can quickly see this by looking at the status of the bot.\n\n" \
-                            "If the bot is offline **or** away, the server is __offline__.\n" \
-                            "If the bot is online **and** playing Minecraft, the server is __online__."
+        embed.description = "You can quickly see this by looking at my status!\n\n" \
+                            "If I am offline **or** away, the server is __offline__.\n" \
+                            "If I am online **and** playing Minecraft, the server is __online__."
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
