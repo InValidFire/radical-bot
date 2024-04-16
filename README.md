@@ -18,6 +18,10 @@
 - Manage Minecraft server config
     - Get current config files
     - Replace config files remotely
+- Manage Server Ranks
+    - Link Discord accounts w/ Minecraft accounts
+    - Whitelist users
+    - Trust users
 - Manage Minecraft server plugins
     - Plugin addition/removal
     - Plugin updating
@@ -29,3 +33,7 @@
 - Manage Minecraft modpack
     - post updates
     - get link
+
+Future Plans?
+- Multi-world support?
+    - Similar to Realms functionality?
