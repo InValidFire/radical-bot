@@ -277,13 +277,6 @@ class MinecraftServer(commands.Cog):
         else:
             await interaction.response.send_message(embed=embed)
 
-    @server_group.command(name="list", description="List all players on the Minecraft server.")
-    async def list_players(self, interaction: discord.Interaction) -> None:
-        embed = await _run_command(self.bot, "list")
-        embed.title = "Player List"
-        embed.set_footer(text=interaction.user.display_name, icon_url=interaction.user.avatar.url)
-        await interaction.response.send_message(embed=embed)
-
     @server_group.command(name="update", description="Update the Minecraft server.")
     async def update_server(self, interaction: discord.Interaction, url: str) -> None:
         embed = await _update_server(self.bot, url, interaction)
