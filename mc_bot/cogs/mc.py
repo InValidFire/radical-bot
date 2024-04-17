@@ -79,7 +79,7 @@ class MC(commands.Cog):
         return
 
     @mc_group.command(name="whois-mc",
-                      description="Identify the Discord user associated with a Minecraft account.")
+                      description="Identify a Discord User from a Minecraft account.")
     async def whois_mc(self, interaction: discord.Interaction, mc_username: str) -> None:
         """Get the player data for a specified Minecraft user.
 
@@ -114,7 +114,7 @@ class MC(commands.Cog):
         return
 
     @mc_group.command(name="whois-discord",
-                      description="Identify the Minecraft account associated with a Discord user.")
+                      description="Identify a Minecraft with a Discord user.")
     async def whois_discord(self, interaction: discord.Interaction, user: discord.User) -> None:
         """Identify the Minecraft account associated with a Discord user.
 
