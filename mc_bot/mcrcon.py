@@ -41,7 +41,7 @@ async def get_players(rcon_config: Rcon) -> list[str]:
         list[str]: The players on the Minecraft server.
     """
     response = await run_command("list", rcon_config)
-    response = response.split(":")
+    response = response.split(": ")
     return response[1].split(", ")
 
 
@@ -57,7 +57,7 @@ async def get_teams(rcon_config) -> str:
     response = await run_command("team list", rcon_config)
     if response == "There are no teams":
         return []
-    response = response.split(":")[1].strip()
+    response = response.split(": ")[1].strip()
     response = response.replace("[", "").replace("]", "")  # remove brackets
     response = response.split(", ")
     return response
