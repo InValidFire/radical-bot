@@ -76,20 +76,21 @@ class MC(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
-    @mc_group.command(name="whois", description="Identify the Discord user associated with a Minecraft account.")
-    async def mc_whois(self, interaction: discord.Interaction, username: str) -> None:
+    @mc_group.command(name="whois-mc",
+                      description="Identify the Discord user associated with a Minecraft account.")
+    async def whois_mc(self, interaction: discord.Interaction, mc_username: str) -> None:
         """Get the player data for a specified Minecraft user.
 
         Args:
             interaction (discord.Interaction): The interaction object.
             username (str): The Minecraft username to get data for.
         """
-        embed = MCEmbed(title=f"Player Profile: {username}")
+        embed = MCEmbed(title=f"Player Profile: {mc_username}")
         try:
             discord_id = None
             player_data = self.bot.player_data.get_all()
             for player in player_data:
-                if player[1].mc_username.lower() == username.lower():
+                if player[1].mc_username.lower() == mc_username.lower():
                     player_data = player[1]
                     discord_id = player[0]
                     break
@@ -106,8 +107,9 @@ class MC(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
-    @mc_group.command(name="whois", description="Identify the Minecraft account associated with a Discord user.")
-    async def whois(self, interaction: discord.Interaction, user: discord.User) -> None:
+    @mc_group.command(name="whois-discord",
+                      description="Identify the Minecraft account associated with a Discord user.")
+    async def whois_discord(self, interaction: discord.Interaction, user: discord.User) -> None:
         """Identify the Minecraft account associated with a Discord user.
 
         Args:
