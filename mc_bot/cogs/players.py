@@ -57,7 +57,7 @@ class Players(commands.Cog):
     async def on_member_leave(self, member: discord.Member) -> None:
         embed = PlayersEmbed(title="Player Data Removed")
         player = self.bot.player_data.get(str(member.id))
-        embed.description = f"Player data for {member.mention} has been removed."
+        embed.description = f"Player data for {member.name} has been removed."
         embed.set_footer(text=member.name, icon_url=member.avatar.url)
         embed.add_field(name="Minecraft Username", value=player.mc_username, inline=False)
         embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted else "No")
@@ -70,7 +70,7 @@ class Players(commands.Cog):
             await self.bot.player_data.remove(str(member.id))
         except ValueError:
             embed.description = f"Player data for {member.mention} could not be removed."
-            await self.bot.get_channel(self.bot.config.discord.bot_channel).send(embed=embed)
+        await self.bot.get_channel(self.bot.config.discord.bot_channel).send(embed=embed)
 
     @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="list_ranks", description="List the ranks on the Minecraft server.")
