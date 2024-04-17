@@ -78,7 +78,7 @@ def create_profile_embed(user: discord.User, player: Player, embed: discord.Embe
         embed.add_field(name="Owner", value="Yes")
     if player.is_staff:
         embed.add_field(name="Staff", value="Yes")
-    embed.set_footer(text=user.name, icon_url=user.avatar.url)
+    embed.set_footer(text=user.name, icon_url=None if user.avatar is None else user.avatar.url)
     return embed
 
 
@@ -404,6 +404,12 @@ class PlayerData:
             await self.unwhitelist(discord_id)
         player = Player.from_dict(self._playerdata.pop(str(discord_id)))
         await self.save()
+
+    def get_mc(self, mc_username: str) -> Player | None:
+        for player in self._playerdata.values():
+            if player['mc_username'] == mc_username:
+                return Player.from_dict(player)
+        return None
 
     def get(self, discord_id: int) -> Player | None:
         """
