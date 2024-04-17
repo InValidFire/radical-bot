@@ -178,6 +178,8 @@ class Players(commands.Cog):
             return
         embed = PlayersEmbed(title="Player Linked", description=f"{user.mention} is now linked to {mc_username}.")
         await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed.description = f"Your account has been linked to {mc_username}."
+        await user.send(embed=embed)
 
     @players.command(name="unlink", description="Unlink a Discord account from a Minecraft account.")
     async def unlink(self, interaction: discord.Interaction, user: discord.User) -> None:
@@ -197,6 +199,7 @@ class Players(commands.Cog):
         embed = PlayersEmbed(title="Player Unlinked",
                              description=f"{user.name} is no longer linked to {player_name}.")
         await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed.description = f"Your account has been unlinked from {player_name}."
         await user.send(embed=embed)
 
     @players.command(name="whitelist", description="Whitelist a player on the Minecraft server.")
