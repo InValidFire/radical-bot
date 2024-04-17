@@ -88,8 +88,8 @@ class MC(commands.Cog):
         embed = MCEmbed(title=f"Who is {mc_username} on Discord?")
         try:
             discord_id = None
-            player_data = self.bot.player_data.get_all()
-            for player in player_data:
+            player_data = None
+            for player in self.bot.player_data.get_all():
                 if player[1].mc_username.lower() == mc_username.lower():
                     player_data = player[1]
                     discord_id = player[0]
@@ -99,10 +99,15 @@ class MC(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         user = self.bot.get_user(discord_id)
-        if user is not None:
-            embed.description = f"The Discord account associated with this Minecraft player is {user.mention}."
-        else:
-            embed.description = "Uh oh! The Discord account associated with this Minecraft player no longer exists!"
+        if player_data is None:
+            embed.description = "I don't have any data for this player."
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        if user is None:
+            embed.description = f"**{mc_username}** is not associated with any Discord user."
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        embed.description = f"The Discord user associated with this Minecraft account is {user.mention}."
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
