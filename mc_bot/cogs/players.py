@@ -204,14 +204,18 @@ class Players(commands.Cog):
                 await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
             if check_if_user_has_role(interaction, user, "Trusted"):
                 await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Trusted"))
+            player = self.bot.player_data.get(str(user.id))
+            player_name = player.mc_username
             await self.bot.player_data.remove(str(user.id))
         except Exception as e:
             embed = PlayersEmbed(title="Error Unlinking Player")
             embed.description = f"User {user.mention} could not be unlinked.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        embed = PlayersEmbed(title="Player Unlinked", description=f"{user.mention} is no longer linked.")
+        embed = PlayersEmbed(title="Player Unlinked",
+                             description=f"{user.mention} is no longer linked to {player_name}.")
         await interaction.response.send_message(embed=embed, ephemeral=True)
+        await user.send(embed=embed)
 
     @players.command(name="whitelist", description="Whitelist a player on the Minecraft server.")
     async def whitelist(self, interaction: discord.Interaction, user: discord.Member) -> None:
