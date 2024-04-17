@@ -181,9 +181,9 @@ class Players(commands.Cog):
             embed.description = f"User {user.mention} could not be linked.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        embed = PlayersEmbed(title="Player Linked", description=f"{user.mention} is now linked to {mc_username}.")
+        embed = PlayersEmbed(title="Player Linked", description=f"{user.mention} is now linked to **{mc_username}**.")
         await interaction.response.send_message(embed=embed, ephemeral=True)
-        embed.description = f"Your account has been linked to {mc_username}."
+        embed.description = f"Your account has been linked to **{mc_username}**."
         await user.send(embed=embed)
 
     @players.command(name="unlink", description="Unlink a Discord account from a Minecraft account.")
@@ -227,7 +227,7 @@ class Players(commands.Cog):
         try:
             embed = PlayersEmbed(title="Player Whitelisted")
             player_data = self.bot.player_data.get(str(user.id))
-            embed.description = f"You are now whitelisted on the Minecraft server as '{player_data.mc_username}'."
+            embed.description = f"You are now whitelisted on the Minecraft server as '**{player_data.mc_username}**'."
             await self.bot.player_data.whitelist(str(user.id))
             await user.send(embed=embed)
         except ValueError as e:
