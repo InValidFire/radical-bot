@@ -85,7 +85,7 @@ class MC(commands.Cog):
             interaction (discord.Interaction): The interaction object.
             username (str): The Minecraft username to get data for.
         """
-        embed = MCEmbed(title=f"Player Profile: {mc_username}")
+        embed = MCEmbed(title=f"Who is {mc_username} on Discord?")
         try:
             discord_id = None
             player_data = self.bot.player_data.get_all()
@@ -100,10 +100,9 @@ class MC(commands.Cog):
             return
         user = self.bot.get_user(discord_id)
         if user is not None:
-            embed.add_field(name="Discord Account", value=user.mention, inline=False)
-            embed.add_field(name="Minecraft Username", value=player_data.mc_username, inline=False)
+            embed.description = f"The Discord account associated with this Minecraft player is {user.mention}."
         else:
-            embed.description = "The Discord account associated with this Minecraft player no longer exists!"
+            embed.description = "Uh oh! The Discord account associated with this Minecraft player no longer exists!"
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
@@ -123,7 +122,7 @@ class MC(commands.Cog):
             embed.description = "I don't have any data for this user."
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        embed.description = f"They are associated with the following Minecraft account: {player_data.mc_username}."
+        embed.description = f"They are associated with the following Minecraft account: **{player_data.mc_username}**."
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
