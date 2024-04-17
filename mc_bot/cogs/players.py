@@ -53,20 +53,23 @@ class Players(commands.Cog):
     async def on_member_remove(self, member: discord.Member) -> None:
         logger.info("Member %s left the server, removing player data.", member.name)
         embed = PlayersEmbed(title="Player Data Removed")
-        player = self.bot.player_data.get(member.id)
-        embed.description = f"Player data for {member.name} has been removed."
-        embed.set_footer(text=member.name, icon_url=member.avatar.url)
-        embed.add_field(name="Minecraft Username", value=player.mc_username, inline=False)
-        embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted else "No")
-        embed.add_field(name="Trusted", value="Yes" if player.is_trusted else "No")
-        if player.is_owner:
-            embed.add_field(name="Owner", value="Yes")
-        if player.is_staff:
-            embed.add_field(name="Staff", value="Yes")
         try:
-            await self.bot.player_data.remove(member.id)
+            player = self.bot.player_data.get(member.id)
+            embed.description = f"Player data for {member.name} has been removed."
+            embed.set_footer(text=member.name, icon_url=member.avatar.url)
+            embed.add_field(name="Minecraft Username", value=player.mc_username, inline=False)
+            embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted else "No")
+            embed.add_field(name="Trusted", value="Yes" if player.is_trusted else "No")
+            if player.is_owner:
+                embed.add_field(name="Owner", value="Yes")
+            if player.is_staff:
+                embed.add_field(name="Staff", value="Yes")
+            try:
+                await self.bot.player_data.remove(member.id)
+            except ValueError:
+                embed.description = f"Player data for {member.mention} could not be removed."
         except ValueError:
-            embed.description = f"Player data for {member.mention} could not be removed."
+            embed.description = "No data found to remove."
         await self.bot.get_channel(self.bot.config.discord.bot_channel).send(embed=embed)
 
     staff_group = app_commands.Group(name="staff", description="Commands for managing staff members.",
