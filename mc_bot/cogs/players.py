@@ -69,7 +69,7 @@ class Players(commands.Cog):
                 embed.description = f"Player data for {member.mention} could not be removed."
         except ValueError:
             embed.description = "No data found to remove."
-        await self.bot.get_channel(self.bot.config.discord.bot_channel).send(embed=embed)
+        await self.bot.config.discord.bot_channel.send(embed=embed)
 
     staff_group = app_commands.Group(name="staff", description="Commands for managing staff members.",
                                      default_permissions=discord.Permissions(administrator=True))
