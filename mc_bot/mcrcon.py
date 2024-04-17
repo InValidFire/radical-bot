@@ -31,14 +31,14 @@ async def run_command(command: str, rcon_config: Rcon) -> str:
     return response
 
 
-async def get_players(rcon_config: Rcon) -> str:
+async def get_players(rcon_config: Rcon) -> list[str]:
     """Get the players on the Minecraft server.
 
     Args:
         rcon_config (Rcon): The Rcon configuration.
 
     Returns:
-        str: The players on the Minecraft server.
+        list[str]: The players on the Minecraft server.
     """
     response = await run_command("list", rcon_config)
     response = response.split(":")
@@ -69,6 +69,7 @@ async def whitelist_add(player: str, rcon_config: Rcon) -> str:
 
 async def whitelist_remove(player: str, rcon_config: Rcon) -> str:
     players = await get_players(rcon_config)
+    logger.info(players)
     logger.info(f"Removing {player} from the whitelist.")
     if player in players:
         logger.info(f"Kicking {player} from the server.")
