@@ -66,35 +66,97 @@ async def mc_whitelist(player: Player, rcon_config: Rcon):
 
 
 async def mc_unwhitelist(player: Player, rcon_config: Rcon):
+    """
+    Remove a player from the whitelist in Minecraft.
+
+    Args:
+        player (Player): The player to remove.
+        rcon_config (Rcon): The Rcon configuration to use.
+
+    Raises:
+        ValueError: If the player is not found.
+    """
     await team_leave("Whitelisted", player.mc_username, rcon_config)
     await whitelist_remove(player.mc_username, rcon_config)
     player.is_whitelisted = False
 
 
 async def mc_trust(player: Player, rcon_config: Rcon):
+    """
+    Add a player to the trusted team in Minecraft.
+
+    Args:
+        player (Player): The player to add.
+        rcon_config (Rcon): The Rcon configuration to use.
+
+    Raises:
+        ValueError: If the player is not found.
+    """
+    await team_leave("Whitelisted", player.mc_username, rcon_config)
     await team_join("Trusted", player.mc_username, rcon_config, "blue")
     player.is_trusted = True
 
 
 async def mc_untrust(player: Player, rcon_config: Rcon):
+    """
+    Remove a player from the trusted team in Minecraft.
+
+    Args:
+        player (Player): The player to remove.
+        rcon_config (Rcon): The Rcon configuration to use.
+
+    Raises:
+        ValueError: If the player is not found.
+    """
     await team_leave("Trusted", player.mc_username, rcon_config)
+    await team_join("Whitelisted", player.mc_username, rcon_config, "green")
     await whitelist_remove(player.mc_username, rcon_config)
     player.is_trusted = False
 
 
 async def mc_staff(player: Player, rcon_config: Rcon):
-    await team_join("Staff", player.mc_username, rcon_config, "yellow")
+    """
+    Add a player to the staff team in Minecraft.
+
+    Args:
+        player (Player): The player to add.
+        rcon_config (Rcon): The Rcon configuration to use.
+
+    Raises:
+        ValueError: If the player is not found.
+    """
+    await team_leave("Trusted", player.mc_username, rcon_config)
+    await team_join("Staff", player.mc_username, rcon_config, "purple")
     await op(player.mc_username, rcon_config)
     player.is_staff = True
 
 
 async def mc_unstaff(player: Player, rcon_config: Rcon):
+    """
+    Remove a player from the staff team in Minecraft.
+
+    Args:
+        player (Player): The player to remove.
+        rcon_config (Rcon): The Rcon configuration to use.
+
+    Raises:
+        ValueError: If the player is not found.
+    """
     await team_leave("Staff", player.mc_username, rcon_config)
     await deop(player.mc_username, rcon_config)
     player.is_staff = False
 
 
 async def mc_owner(player: Player, rcon_config: Rcon):
+    """
+    Add a player to the owner team in Minecraft.
+
+    Args:
+        player (Player): The player to add.
+        rcon_config (Rcon): The Rcon configuration to use.
+
+    Raises:
+        ValueError: If the player is not found."""
     await team_join("Owner", player.mc_username, rcon_config, "red")
     await whitelist_add(player.mc_username, rcon_config)
     await op(player.mc_username, rcon_config)
@@ -103,6 +165,16 @@ async def mc_owner(player: Player, rcon_config: Rcon):
 
 
 async def mc_unowner(player: Player, rcon_config: Rcon):
+    """
+    Remove a player from the owner team in Minecraft.
+
+    Args:
+        player (Player): The player to remove.
+        rcon_config (Rcon): The Rcon configuration to use.
+
+    Raises:
+        ValueError: If the player is not found.
+    """
     await team_leave("Owner", player.mc_username, rcon_config)
     await whitelist_remove(player.mc_username, rcon_config)
     await deop(player.mc_username, rcon_config)
@@ -122,14 +194,26 @@ class PlayerData:
     def __str__(self):
         return str(self._playerdata)
 
-    def is_whitelisted(self, discord_id: str) -> bool:
-        return discord_id in self._playerdata
-
     async def save(self):
-        async with aiofiles.open(self.file_path, 'w') as f:
+        """
+        Save the player data to the file.
+
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        async with aiofiles.open(self.file_path, 'w+') as f:
             await f.write(json.dumps(self._playerdata, indent=4))
 
     async def add_owner(self, discord_id: str):
+        """
+        Add a player to the owner team.
+
+        Args:
+            discord_id (str): The Discord ID of the player to add.
+
+        Raises:
+            ValueError: If the player is not found.
+        """
         player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found.")
@@ -138,6 +222,15 @@ class PlayerData:
         await self.save()
 
     async def remove_owner(self, discord_id: str):
+        """
+        Remove a player from the owner team.
+
+        Args:
+            discord_id (str): The Discord ID of the player to remove.
+
+        Raises:
+            ValueError: If the player is not found.
+        """
         player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found.")
@@ -146,6 +239,14 @@ class PlayerData:
         await self.save()
 
     async def add_staff(self, discord_id: str):
+        """
+        Add a player to the staff team.
+
+        Args:
+            discord_id (str): The Discord ID of the player to add.
+
+        Raises:
+            ValueError: If the player is not found."""
         player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found.")
@@ -154,6 +255,15 @@ class PlayerData:
         await self.save()
 
     async def remove_staff(self, discord_id: str):
+        """
+        Remove a player from the staff team.
+
+        Args:
+            discord_id (str): The Discord ID of the player to remove.
+
+        Raises:
+            ValueError: If the player is not found.
+        """
         player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found.")
@@ -163,6 +273,16 @@ class PlayerData:
         await self.save()
 
     async def add(self, discord_id: str, query: str):
+        """
+        Add a player to the player data. This will create a profile for the player.
+
+        Args:
+            discord_id (str): The Discord ID of the player.
+            query (str): The Minecraft username of the player.
+
+        Raises:
+            ValueError: If the player is not found.
+        """
         player = await Player.lookup_player(query)
         if player is None:
             raise ValueError("Player not found.")
@@ -170,6 +290,15 @@ class PlayerData:
         await self.save()
 
     async def whitelist(self, discord_id: str):
+        """
+        Add a player to the whitelist. This will add them to the whitelist on the server and Discord.
+
+        Args:
+            discord_id (str): The Discord ID of the player.
+
+        Raises:
+            ValueError: If the player is not found in the player data.
+        """
         player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found in player data.")
@@ -178,6 +307,15 @@ class PlayerData:
         await self.save()
 
     async def unwhitelist(self, discord_id: str):
+        """
+        Unwhitelist a player. This will remove them from the whitelist on the server and Discord.
+
+        Args:
+            discord_id (str): The Discord ID of the player.
+
+        Raises:
+            ValueError: If the player is not found in the player data.
+        """
         player = Player.from_dict(self._playerdata[discord_id])
         if player is None:
             raise ValueError("Player not found in player data.")
@@ -186,6 +324,15 @@ class PlayerData:
         await self.save()
 
     async def trust(self, discord_id: str):
+        """
+        Trust a player. This will add them to the trusted team on the server and Discord.
+
+        Args:
+            discord_id (str): The Discord ID of the player.
+
+        Raises:
+            ValueError: If the player is not found in the player data.
+        """
         player = Player.from_dict(self._playerdata[discord_id])
         if player is None:
             raise ValueError("Player not found in player data.")
@@ -196,6 +343,15 @@ class PlayerData:
         await self.save()
 
     async def untrust(self, discord_id: str):
+        """
+        Untrust a player. This will remove them from the trusted team on the server and Discord.
+
+        Args:
+            discord_id (str): The Discord ID of the player.
+
+        Raises:
+            ValueError: If the player is not found in the player data.
+        """
         player = Player.from_dict(self._playerdata[discord_id])
         if player is None:
             raise ValueError("Player not found in player data.")
@@ -205,6 +361,15 @@ class PlayerData:
         await self.save()
 
     async def remove(self, discord_id: str):
+        """
+        Remove a player from the player data.
+
+        Args:
+            discord_id (str): The Discord ID of the player to remove.
+
+        Raises:
+            ValueError: If the player is not found in the player data.
+        """
         player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found in player data.")
@@ -220,6 +385,14 @@ class PlayerData:
         await self.save()
 
     def get(self, discord_id: str) -> Player | None:
+        """
+        Get a player object from the player data. If the player is not found, return None.
+
+        Args:
+            discord_id (str): The Discord ID of the player.
+
+        Returns:
+            Player | None: The player object if found, otherwise None."""
         player = Player.from_dict(self._playerdata.get(discord_id))
         if player is None:
             raise ValueError("Player not found in player data.")
