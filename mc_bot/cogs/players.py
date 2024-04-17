@@ -7,8 +7,6 @@ from discord.ext import commands
 from ..bot import MainBot
 from ..views.page_view import PageView
 
-from ..mcrcon import get_teams
-
 logger = logging.getLogger(__file__)
 
 
@@ -50,9 +48,6 @@ class Players(commands.Cog):
     def __init__(self, bot: MainBot) -> None:
         self.bot = bot
 
-    players = app_commands.Group(name="players", description="Commands for managing players.",
-                                 default_permissions=discord.Permissions(manage_guild=True))
-
     @commands.Cog.listener()
     async def on_member_leave(self, member: discord.Member) -> None:
         logger.info("Member %s left the server, removing player data.", member.name)
@@ -73,30 +68,10 @@ class Players(commands.Cog):
             embed.description = f"Player data for {member.mention} could not be removed."
         await self.bot.get_channel(self.bot.config.discord.bot_channel).send(embed=embed)
 
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.command(name="list_ranks", description="List the ranks on the Minecraft server.")
-    async def list_ranks(self, interaction: discord.Interaction) -> None:
-        if self.bot.server_process is None or self.bot.server_process.poll() is not None:
-            embed = PlayersEmbed(title="Server Status")
-            embed.description = "Server is not running."
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        embed = PlayersEmbed(title="Ranks on the Minecraft Server")
-        try:
-            ranks = await get_teams(self.bot.config.minecraft.rcon)
-            if len(ranks) == 0:
-                embed.description = "No ranks found."
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-                return
-            embed.description = ""
-            for rank in ranks:
-                embed.description += f"- {rank}\n"
-        except Exception as e:
-            embed.description = f"Error listing ranks: {e}"
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+    staff_group = app_commands.Group(name="staff", description="Commands for managing staff members.",
+                                     default_permissions=discord.Permissions(administrator=True))
 
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.command(name="add_staff", description="Add a staff member to the Minecraft server.")
+    @staff_group.command(name="add", description="Add a staff member to the Minecraft server.")
     async def add_staff(self, interaction: discord.Interaction, user: discord.User) -> None:
         if not check_if_guild_has_role(interaction, "Staff"):
             embed = PlayersEmbed(title="Error Adding Staff")
@@ -124,8 +99,7 @@ class Players(commands.Cog):
             await member.add_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.command(name="remove_staff", description="Remove a staff member from the Minecraft server.")
+    @staff_group.command(name="remove", description="Remove a staff member from the Minecraft server.")
     async def remove_staff(self, interaction: discord.Interaction, user: discord.User) -> None:
         if not check_if_guild_has_role(interaction, "Staff"):
             embed = PlayersEmbed(title="Error Removing Staff")
@@ -152,6 +126,9 @@ class Players(commands.Cog):
         if member is not None:
             await member.remove_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    players = app_commands.Group(name="players", description="Commands for managing players.",
+                                 default_permissions=discord.Permissions(manage_guild=True))
 
     @players.command(name="profile", description="Get information about a player.")
     async def info(self, interaction: discord.Interaction, user: discord.User) -> None:
