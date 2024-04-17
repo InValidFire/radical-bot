@@ -56,7 +56,6 @@ class Players(commands.Cog):
         try:
             player = self.bot.player_data.get(member.id)
             embed.description = f"Player data for {member.name} has been removed."
-            embed.set_footer(text=member.name, icon_url=member.avatar.url)
             embed.add_field(name="Minecraft Username", value=player.mc_username, inline=False)
             embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted else "No")
             embed.add_field(name="Trusted", value="Yes" if player.is_trusted else "No")
