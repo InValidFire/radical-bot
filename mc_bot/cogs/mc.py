@@ -76,7 +76,7 @@ class MC(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
-    @mc_group.command(name="mc-whois", description="Get the corresponding Discord of a Minecraft user.")
+    @mc_group.command(name="whois", description="Identify the Discord user associated with a Minecraft account.")
     async def mc_whois(self, interaction: discord.Interaction, username: str) -> None:
         """Get the player data for a specified Minecraft user.
 
@@ -106,23 +106,22 @@ class MC(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
-    @mc_group.command(name="whois", description="Get the corresponding Minecraft account of a Discord user.")
+    @mc_group.command(name="whois", description="Identify the Minecraft account associated with a Discord user.")
     async def whois(self, interaction: discord.Interaction, user: discord.User) -> None:
-        """Get the player data for a specified Discord user.
+        """Identify the Minecraft account associated with a Discord user.
 
         Args:
             interaction (discord.Interaction): The interaction object.
             user (discord.User): The Discord user to get data for.
         """
-        embed = MCEmbed(title=f"Player Profile: {user.display_name}")
+        embed = MCEmbed(title=f"Who is {user.display_name} in Minecraft?")
         try:
             player_data = self.bot.player_data.get(str(user.id))
         except ValueError:
-            embed.description = "Player not found."
+            embed.description = "I don't have any data for this user."
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        embed.add_field(name="Discord Account", value=user.mention, inline=False)
-        embed.add_field(name="Minecraft Username", value=player_data.mc_username, inline=False)
+        embed.description = f"They are associated with the following Minecraft account: {player_data.mc_username}."
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
