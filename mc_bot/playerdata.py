@@ -99,6 +99,7 @@ async def mc_owner(player: Player, rcon_config: Rcon):
     await whitelist_add(player.mc_username, rcon_config)
     await op(player.mc_username, rcon_config)
     player.is_owner = True
+    player.is_whitelisted = True
 
 
 async def mc_unowner(player: Player, rcon_config: Rcon):
@@ -106,6 +107,7 @@ async def mc_unowner(player: Player, rcon_config: Rcon):
     await whitelist_remove(player.mc_username, rcon_config)
     await deop(player.mc_username, rcon_config)
     player.is_owner = False
+    player.is_whitelisted = False
 
 
 class PlayerData:
