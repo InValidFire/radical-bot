@@ -37,7 +37,8 @@
 To-Do:
     - Refactor backups to use class objects
     - Refactor command handling back into cogs; remove optional interaction parameter; simplify code
-    - Add an admin-channel where bot logs are sent, ie, updates, server stops/starts, etc
+    - Automatic backups aren't running? Why?
+    - Warn players when server is shutting off... delay (can be overridden)
 
 Future Plans?
 - Multi-world support?
