@@ -25,6 +25,7 @@ async def run_command(command: str, rcon_config: Rcon) -> str:
         response = str(f"{e} | {e.errno}")
         if "Errno 111" in str(e):  # for some reason, the errno value is not set, so we catch it this way
             raise ConnectionRefusedError("Connection refused. Is the server running?") from e
+        raise e
     except Exception as e:
         response = str(e)
         raise e
@@ -55,11 +56,13 @@ async def get_teams(rcon_config) -> str:
         list[str]: The ranks on the Minecraft server.
     """
     response = await run_command("team list", rcon_config)
+    logger.info(response)
     if response == "There are no teams":
         return []
     response = response.split(": ")[1].strip()
     response = response.replace("[", "").replace("]", "")  # remove brackets
     response = response.split(", ")
+    logger.info(response)
     return response
 
 

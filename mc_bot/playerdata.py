@@ -72,8 +72,8 @@ def create_profile_embed(user: discord.User, player: Player, embed: discord.Embe
         PlayersEmbed: The embed for the player's profile.
     """
     embed.add_field(name="Minecraft Username", value=player.mc_username, inline=False)
-    embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted else "No")
-    embed.add_field(name="Trusted", value="Yes" if player.is_trusted else "No")
+    embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted or player.is_owner else "No")
+    embed.add_field(name="Trusted", value="Yes" if player.is_trusted or player.is_owner else "No")
     if player.is_owner:
         embed.add_field(name="Owner", value="Yes")
     if player.is_staff:
@@ -180,10 +180,11 @@ async def mc_owner(player: Player, rcon_config: Rcon):
 
     Raises:
         ValueError: If the player is not found."""
-    await team_join("Owner", player.mc_username, rcon_config, "red")
+    await team_join("Owner", player.mc_username, rcon_config, "light_purple")
     await whitelist_add(player.mc_username, rcon_config)
     await op(player.mc_username, rcon_config)
     player.is_owner = True
+    player.is_whitelisted = True
 
 
 async def mc_unowner(player: Player, rcon_config: Rcon):
@@ -199,7 +200,6 @@ async def mc_unowner(player: Player, rcon_config: Rcon):
     """
     await team_leave("Owner", player.mc_username, rcon_config)
     await deop(player.mc_username, rcon_config)
-    await whitelist_remove(player.mc_username, rcon_config)
     player.is_owner = False
 
 
@@ -225,7 +225,7 @@ class PlayerData:
         async with aiofiles.open(self.file_path, 'w+') as f:
             await f.write(json.dumps(self._playerdata, indent=4))
 
-    async def add_owner(self, discord_id: str):
+    async def add_owner(self, discord_id: int):
         """
         Add a player to the owner team.
 
@@ -239,10 +239,10 @@ class PlayerData:
         if player is None:
             raise ValueError("Player not found.")
         await mc_owner(player, self.rcon_config)
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
         await self.save()
 
-    async def remove_owner(self, discord_id: str):
+    async def remove_owner(self, discord_id: int):
         """
         Remove a player from the owner team.
 
@@ -256,10 +256,10 @@ class PlayerData:
         if player is None:
             raise ValueError("Player not found.")
         await mc_unowner(player, self.rcon_config)
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
         await self.save()
 
-    async def add_staff(self, discord_id: str):
+    async def add_staff(self, discord_id: int):
         """
         Add a player to the staff team.
 
@@ -272,10 +272,10 @@ class PlayerData:
         if player is None:
             raise ValueError("Player not found.")
         await mc_staff(player, self.rcon_config)
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
         await self.save()
 
-    async def remove_staff(self, discord_id: str):
+    async def remove_staff(self, discord_id: int):
         """
         Remove a player from the staff team.
 
@@ -290,10 +290,10 @@ class PlayerData:
             raise ValueError("Player not found.")
         await mc_unstaff(player, self.rcon_config)
         player.is_staff = False
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
         await self.save()
 
-    async def add(self, discord_id: str, query: str):
+    async def add(self, discord_id: int, query: str):
         """
         Add a player to the player data. This will create a profile for the player.
 
@@ -307,10 +307,10 @@ class PlayerData:
         player = await Player.lookup_player(query)
         if player is None:
             raise ValueError("Player not found.")
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
         await self.save()
 
-    async def whitelist(self, discord_id: str):
+    async def whitelist(self, discord_id: int):
         """
         Add a player to the whitelist. This will add them to the whitelist on the server and Discord.
 
@@ -324,10 +324,10 @@ class PlayerData:
         if player is None:
             raise ValueError("Player not found in player data.")
         await mc_whitelist(player, self.rcon_config)
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
         await self.save()
 
-    async def unwhitelist(self, discord_id: str):
+    async def unwhitelist(self, discord_id: int):
         """
         Unwhitelist a player. This will remove them from the whitelist on the server and Discord.
 
@@ -337,14 +337,14 @@ class PlayerData:
         Raises:
             ValueError: If the player is not found in the player data.
         """
-        player = Player.from_dict(self._playerdata[discord_id])
+        player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found in player data.")
         await mc_unwhitelist(player, self.rcon_config)
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
         await self.save()
 
-    async def trust(self, discord_id: str):
+    async def trust(self, discord_id: int):
         """
         Trust a player. This will add them to the trusted team on the server and Discord.
 
@@ -354,16 +354,16 @@ class PlayerData:
         Raises:
             ValueError: If the player is not found in the player data.
         """
-        player = Player.from_dict(self._playerdata[discord_id])
+        player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found in player data.")
         await mc_trust(player, self.rcon_config)
         player.is_trusted = True
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
 
         await self.save()
 
-    async def untrust(self, discord_id: str):
+    async def untrust(self, discord_id: int):
         """
         Untrust a player. This will remove them from the trusted team on the server and Discord.
 
@@ -373,15 +373,15 @@ class PlayerData:
         Raises:
             ValueError: If the player is not found in the player data.
         """
-        player = Player.from_dict(self._playerdata[discord_id])
+        player = self.get(discord_id)
         if player is None:
             raise ValueError("Player not found in player data.")
         await mc_untrust(player, self.rcon_config)
-        self._playerdata[discord_id] = player.as_dict()
+        self.set(discord_id, player)
 
         await self.save()
 
-    async def remove(self, discord_id: str):
+    async def remove(self, discord_id: int):
         """
         Remove a player from the player data.
 
@@ -402,22 +402,28 @@ class PlayerData:
             await self.untrust(discord_id)
         if player.is_whitelisted:
             await self.unwhitelist(discord_id)
-        player = Player.from_dict(self._playerdata.pop(discord_id))
+        player = Player.from_dict(self._playerdata.pop(str(discord_id)))
         await self.save()
 
-    def get(self, discord_id: str) -> Player | None:
+    def get(self, discord_id: int) -> Player | None:
         """
         Get a player object from the player data. If the player is not found, return None.
 
         Args:
             discord_id (str): The Discord ID of the player.
 
+        Raises:
+            ValueError: If the player is not found in the player data.
+
         Returns:
             Player | None: The player object if found, otherwise None."""
-        player = Player.from_dict(self._playerdata.get(discord_id))
+        player = Player.from_dict(self._playerdata.get(str(discord_id)))
         if player is None:
             raise ValueError("Player not found in player data.")
         return player
 
     def get_all(self) -> list[tuple[int, Player]]:
         return [(int(k), Player.from_dict(v)) for k, v in self._playerdata.items()]
+
+    def set(self, discord_id: int, player: Player):
+        self._playerdata[str(discord_id)] = player.as_dict()
