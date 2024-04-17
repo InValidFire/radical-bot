@@ -133,7 +133,6 @@ async def mc_untrust(player: Player, rcon_config: Rcon):
     """
     await team_leave("Trusted", player.mc_username, rcon_config)
     await team_join("Whitelisted", player.mc_username, rcon_config, "green")
-    await whitelist_remove(player.mc_username, rcon_config)
     player.is_trusted = False
 
 
@@ -166,6 +165,7 @@ async def mc_unstaff(player: Player, rcon_config: Rcon):
         ValueError: If the player is not found.
     """
     await team_leave("Staff", player.mc_username, rcon_config)
+    await team_join("Trusted", player.mc_username, rcon_config, "blue")
     await deop(player.mc_username, rcon_config)
     player.is_staff = False
 
