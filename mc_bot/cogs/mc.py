@@ -76,8 +76,58 @@ class MC(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
+    @mc_group.command(name="mc-whois", description="Get the corresponding Discord of a Minecraft user.")
+    async def mc_whois(self, interaction: discord.Interaction, username: str) -> None:
+        """Get the player data for a specified Minecraft user.
+
+        Args:
+            interaction (discord.Interaction): The interaction object.
+            username (str): The Minecraft username to get data for.
+        """
+        embed = MCEmbed(title=f"Player Profile: {username}")
+        try:
+            discord_id = None
+            player_data = self.bot.player_data.get_all()
+            for player in player_data:
+                if player[1].mc_username.lower() == username.lower():
+                    player_data = player[1]
+                    discord_id = player[0]
+                    break
+        except ValueError:
+            embed.description = "Player not found."
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        user = self.bot.get_user(discord_id)
+        if user is not None:
+            embed.add_field(name="Discord Account", value=user.mention, inline=False)
+            embed.add_field(name="Minecraft Username", value=player_data.mc_username, inline=False)
+        else:
+            embed.description = "The Discord account associated with this Minecraft player no longer exists!"
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
+    @mc_group.command(name="whois", description="Get the corresponding Minecraft account of a Discord user.")
+    async def whois(self, interaction: discord.Interaction, user: discord.User) -> None:
+        """Get the player data for a specified Discord user.
+
+        Args:
+            interaction (discord.Interaction): The interaction object.
+            user (discord.User): The Discord user to get data for.
+        """
+        embed = MCEmbed(title=f"Player Profile: {user.display_name}")
+        try:
+            player_data = self.bot.player_data.get(str(user.id))
+        except ValueError:
+            embed.description = "Player not found."
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        embed.add_field(name="Discord Account", value=user.mention, inline=False)
+        embed.add_field(name="Minecraft Username", value=player_data.mc_username, inline=False)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
     @mc_group.command(name="profile", description="Get your player profile.")
-    async def me(self, interaction: discord.Interaction) -> None:
+    async def profile(self, interaction: discord.Interaction) -> None:
         """Get the player data for the user who invoked the command.
 
         Args:
