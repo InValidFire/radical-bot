@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from ..bot import MainBot
 from ..views.page_view import PageView
+from ..playerdata import create_profile_embed
 
 logger = logging.getLogger(__file__)
 
@@ -144,14 +145,7 @@ class Players(commands.Cog):
             embed.description = f"User {user.mention}'s player data could not be found."
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        embed.add_field(name="Minecraft Username", value=player.mc_username, inline=False)
-        embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted else "No")
-        embed.add_field(name="Trusted", value="Yes" if player.is_trusted else "No")
-        if player.is_owner:
-            embed.add_field(name="Owner", value="Yes")
-        if player.is_staff:
-            embed.add_field(name="Staff", value="Yes")
-        embed.set_footer(text=user.name, icon_url=user.avatar.url)
+        embed = create_profile_embed(user, player, embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="list", description="List all known players on the Minecraft server.")

@@ -10,6 +10,8 @@ import aiohttp
 from .mcrcon import team_join, team_leave, op, deop, whitelist_add, whitelist_remove
 from .config import Rcon
 
+import discord
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,6 +59,27 @@ is_whitelisted={self.is_whitelisted})"
                 username = data['data']['player']['username']
 
                 return cls(uuid, username)
+
+
+def create_profile_embed(user: discord.User, player: Player, embed: discord.Embed) -> discord.Embed:
+    """Create an embed for a player's profile.
+
+    Args:
+        user (discord.User): The user to create the profile for.
+        player (Player): The player data.
+
+    Returns:
+        PlayersEmbed: The embed for the player's profile.
+    """
+    embed.add_field(name="Minecraft Username", value=player.mc_username, inline=False)
+    embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted else "No")
+    embed.add_field(name="Trusted", value="Yes" if player.is_trusted else "No")
+    if player.is_owner:
+        embed.add_field(name="Owner", value="Yes")
+    if player.is_staff:
+        embed.add_field(name="Staff", value="Yes")
+    embed.set_footer(text=user.name, icon_url=user.avatar.url)
+    return embed
 
 
 async def mc_whitelist(player: Player, rcon_config: Rcon):
