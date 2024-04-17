@@ -55,6 +55,7 @@ class Players(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_leave(self, member: discord.Member) -> None:
+        logger.info("Member %s left the server, removing player data.", member.name)
         embed = PlayersEmbed(title="Player Data Removed")
         player = self.bot.player_data.get(str(member.id))
         embed.description = f"Player data for {member.name} has been removed."
@@ -148,7 +149,7 @@ class Players(commands.Cog):
         await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @players.command(name="info", description="Get information about a player.")
+    @players.command(name="profile", description="Get information about a player.")
     async def info(self, interaction: discord.Interaction, user: discord.Member) -> None:
         embed = PlayersEmbed(title=f"{user.name}'s Player Profile")
         try:
@@ -175,7 +176,7 @@ class Players(commands.Cog):
             embed = PlayersEmbed(title="No players found.")
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        players = [f"{discord.utils.get(interaction.guild.members, id=discord_id).mention} ({player.mc_username})"
+        players = [f"{discord.utils.get(interaction.guild.members, id=discord_id).name} ({player.mc_username})"
                    for discord_id, player in players]
         logger.debug("Players: %s", players)
         view = PageView(players, embed)
@@ -209,11 +210,11 @@ class Players(commands.Cog):
             await self.bot.player_data.remove(str(user.id))
         except Exception as e:
             embed = PlayersEmbed(title="Error Unlinking Player")
-            embed.description = f"User {user.mention} could not be unlinked.\n{e}"
+            embed.description = f"User {user.name} could not be unlinked.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Player Unlinked",
-                             description=f"{user.mention} is no longer linked to {player_name}.")
+                             description=f"{user.name} is no longer linked to {player_name}.")
         await interaction.response.send_message(embed=embed, ephemeral=True)
         await user.send(embed=embed)
 
