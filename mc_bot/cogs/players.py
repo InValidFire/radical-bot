@@ -97,7 +97,7 @@ class Players(commands.Cog):
 
     @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="add_staff", description="Add a staff member to the Minecraft server.")
-    async def add_staff(self, interaction: discord.Interaction, user: discord.Member) -> None:
+    async def add_staff(self, interaction: discord.Interaction, user: discord.User) -> None:
         if not check_if_guild_has_role(interaction, "Staff"):
             embed = PlayersEmbed(title="Error Adding Staff")
             embed.description = "The Staff role could not be found."
@@ -119,12 +119,14 @@ class Players(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Staff Added", description=f"{user.mention} is now staff.")
-        await user.add_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
+        member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
+        if member is not None:
+            await member.add_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="remove_staff", description="Remove a staff member from the Minecraft server.")
-    async def remove_staff(self, interaction: discord.Interaction, user: discord.Member) -> None:
+    async def remove_staff(self, interaction: discord.Interaction, user: discord.User) -> None:
         if not check_if_guild_has_role(interaction, "Staff"):
             embed = PlayersEmbed(title="Error Removing Staff")
             embed.description = "The Staff role could not be found."
@@ -146,11 +148,13 @@ class Players(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Staff Removed", description=f"{user.mention} is no longer staff.")
-        await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
+        member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
+        if member is not None:
+            await member.remove_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="profile", description="Get information about a player.")
-    async def info(self, interaction: discord.Interaction, user: discord.Member) -> None:
+    async def info(self, interaction: discord.Interaction, user: discord.User) -> None:
         embed = PlayersEmbed(title=f"{user.name}'s Player Profile")
         try:
             player = self.bot.player_data.get(str(user.id))
@@ -199,7 +203,7 @@ class Players(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="unlink", description="Unlink a Discord account from a Minecraft account.")
-    async def unlink(self, interaction: discord.Interaction, user: discord.Member) -> None:
+    async def unlink(self, interaction: discord.Interaction, user: discord.User) -> None:
         try:
             if check_if_user_has_role(interaction, user, "Whitelisted"):
                 await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
@@ -219,7 +223,7 @@ class Players(commands.Cog):
         await user.send(embed=embed)
 
     @players.command(name="whitelist", description="Whitelist a player on the Minecraft server.")
-    async def whitelist(self, interaction: discord.Interaction, user: discord.Member) -> None:
+    async def whitelist(self, interaction: discord.Interaction, user: discord.User) -> None:
         if self.bot.server_process is None:
             embed = PlayersEmbed(title="Error Whitelisting")
             embed.description = "The Minecraft server is not running."
@@ -247,11 +251,13 @@ class Players(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Player Whitelisted", description=f"{user.mention} is now whitelisted.")
-        await user.add_roles(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
+        member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
+        if member is not None:
+            await member.add_roles(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="unwhitelist", description="Unwhitelist a player on the Minecraft server.")
-    async def unwhitelist(self, interaction: discord.Interaction, user: discord.Member) -> None:
+    async def unwhitelist(self, interaction: discord.Interaction, user: discord.User) -> None:
         if self.bot.server_process is None:
             embed = PlayersEmbed(title="Error Unwhitelisting")
             embed.description = "The Minecraft server is not running."
@@ -283,11 +289,13 @@ class Players(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Player Unwhitelisted", description=f"{user.mention} is no longer whitelisted.")
-        await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
+        member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
+        if member is not None:
+            await member.remove_roles(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="trust", description="Trust a player on the Minecraft server.")
-    async def trust(self, interaction: discord.Interaction, user: discord.Member) -> None:
+    async def trust(self, interaction: discord.Interaction, user: discord.User) -> None:
         if self.bot.server_process is None:
             embed = PlayersEmbed(title="Error Trusting")
             embed.description = "The Minecraft server is not running."
@@ -319,7 +327,9 @@ class Players(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Player Trusted", description=f"{user.mention} is now trusted.")
-        await user.add_roles(discord.utils.get(interaction.guild.roles, name="Trusted"))
+        member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
+        if member is not None:
+            await member.add_roles(discord.utils.get(interaction.guild.roles, name="Trusted"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="untrust", description="Untrust a player on the Minecraft server.")
@@ -350,7 +360,9 @@ class Players(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Player Untrusted", description=f"{user.mention} is no longer trusted.")
-        await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Trusted"))
+        member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
+        if member is not None:
+            await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Trusted"))
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
