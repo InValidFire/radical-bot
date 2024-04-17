@@ -192,6 +192,12 @@ class Players(commands.Cog):
         try:
             player = self.bot.player_data.get(member.id)
             player_name = player.mc_username
+            if check_if_user_has_role(interaction, member, "Whitelisted"):
+                member.roles.remove(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
+            if check_if_user_has_role(interaction, member, "Trusted"):
+                member.roles.remove(discord.utils.get(interaction.guild.roles, name="Trusted"))
+            if check_if_user_has_role(interaction, member, "Staff"):
+                member.roles.remove(discord.utils.get(interaction.guild.roles, name="Staff"))
             await self.bot.player_data.remove(member.id)
         except ValueError as e:
             embed = PlayersEmbed(title="Error Unlinking Player")
