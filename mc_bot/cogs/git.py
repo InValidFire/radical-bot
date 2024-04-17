@@ -23,7 +23,7 @@ class Git(commands.Cog):
         self.bot = bot
 
     git_group = app_commands.Group(name="git", description="Commands for updating the bot via Git.",
-                                   default_permission=discord.Permissions(administrator=True))
+                                   default_permissions=discord.Permissions(administrator=True))
 
     @git_group.command(name="update", description="Update the bot via Git.")
     async def update_cmd(self, interaction: discord.Interaction, branch: str = "main") -> None:
