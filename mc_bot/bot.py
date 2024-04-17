@@ -47,6 +47,7 @@ class MainBot(commands.Bot):
     async def on_ready(self):
         # this is to refresh the config with object references from discord.py
         self.config = load_config(self, Path.cwd().joinpath("config.jsonc"))
+        info = await self.application_info()
         try:
             await self.load_cogs()
         except commands.ExtensionAlreadyLoaded:
@@ -58,6 +59,7 @@ class MainBot(commands.Bot):
             embed.description = "Bot was aligned with the latest tag. Restarting..."
             self.close()  # restart the bot, as the version was updated.
             return
+        embed.add_field(name="Owner", value=info.owner.name)
         embed.set_footer(text=f"Version: {await get_version_hash(self)}")
         await self.config.discord.bot_channel.send(embed=embed)
 
