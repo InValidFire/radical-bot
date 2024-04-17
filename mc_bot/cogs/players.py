@@ -198,11 +198,11 @@ class Players(commands.Cog):
             await self.bot.player_data.remove(str(user.id))
         except Exception as e:
             embed = PlayersEmbed(title="Error Unlinking Player")
-            embed.description = f"User {user.name} could not be unlinked.\n{e}"
+            embed.description = f"User **{user.display_name}** could not be unlinked.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Player Unlinked",
-                             description=f"{user.name} is no longer linked to {player_name}.")
+                             description=f"**{user.display_name}** is no longer linked to **{player_name}**.")
         await interaction.response.send_message(embed=embed, ephemeral=True)
         embed.description = f"Your account has been unlinked from {player_name}."
         await user.send(embed=embed)
