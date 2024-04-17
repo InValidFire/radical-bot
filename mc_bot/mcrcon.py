@@ -1,5 +1,9 @@
+import logging
+
 from rcon.source import rcon
 from .config import Rcon
+
+logger = logging.getLogger(__name__)
 
 
 #  we should move away from using this directly in the cog and instead use the functions in this file
@@ -65,7 +69,9 @@ async def whitelist_add(player: str, rcon_config: Rcon) -> str:
 
 async def whitelist_remove(player: str, rcon_config: Rcon) -> str:
     players = await get_players(rcon_config)
+    logger.info(f"Removing {player} from the whitelist.")
     if player in players:
+        logger.info(f"Kicking {player} from the server.")
         await run_command(f"kick {player} You have been removed from the whitelist.", rcon_config)
     await run_command(f"whitelist remove {player}", rcon_config)
 
