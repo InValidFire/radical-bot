@@ -83,6 +83,11 @@ class Players(commands.Cog):
             embed.description = f"User {user.mention} is already staff."
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
+        if not check_if_user_has_role(interaction, user, "Trusted"):
+            embed = PlayersEmbed(title="Error Adding Staff")
+            embed.description = f"User {user.mention} is not trusted."
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
         try:
             await self.bot.player_data.add_staff(str(user.id))
             embed = PlayersEmbed(title="You've been promoted!",
