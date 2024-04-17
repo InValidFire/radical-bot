@@ -56,13 +56,7 @@ class Players(commands.Cog):
         try:
             player = self.bot.player_data.get(member.id)
             embed.description = f"Player data for {member.name} has been removed."
-            embed.add_field(name="Minecraft Username", value=player.mc_username, inline=False)
-            embed.add_field(name="Whitelisted", value="Yes" if player.is_whitelisted else "No")
-            embed.add_field(name="Trusted", value="Yes" if player.is_trusted else "No")
-            if player.is_owner:
-                embed.add_field(name="Owner", value="Yes")
-            if player.is_staff:
-                embed.add_field(name="Staff", value="Yes")
+            embed = create_profile_embed(member, player, embed)
             try:
                 await self.bot.player_data.remove(member.id)
             except ValueError:
