@@ -176,7 +176,7 @@ class Players(commands.Cog):
             embed = PlayersEmbed(title="No players found.")
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        players = [f"{discord.utils.get(interaction.guild.members, id=discord_id).name} ({player.mc_username})"
+        players = [f"{self.bot.get_user(discord_id).mention} ({player.mc_username})"
                    for discord_id, player in players]
         logger.debug("Players: %s", players)
         view = PageView(players, embed)
