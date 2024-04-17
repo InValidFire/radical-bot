@@ -122,7 +122,7 @@ class MC(commands.Cog):
             embed.description = "I don't have any data for this user."
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
-        embed.description = f"They are associated with the following Minecraft account: **{player_data.mc_username}**."
+        embed.description = f"The Minecraft account associated with this Discord user is **{player_data.mc_username}**."
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
