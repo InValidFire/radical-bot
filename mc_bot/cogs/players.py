@@ -142,7 +142,7 @@ class Players(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         try:
-            synced_players = await self.bot.player_data.sync()
+            synced_players = await self.bot.player_data.sync(interaction.guild)
             embed = PlayersEmbed(title="Player Data Synced", description="Player data has been synced.")
             if synced_players:
                 embed.description += "\nThe following players were modified."
