@@ -220,8 +220,11 @@ class PlayerData:
         """
         Sync the player data with the Minecraft Server.
 
-        Raises:
-            FileNotFoundError: If the file is not found.
+        Args:
+            guild (discord.Guild): The guild to sync the player data with.
+
+        Returns:
+            list[Player]: The players that were synced.
         """
         synced_players = []
         for discord_id, player in self._playerdata.items():
