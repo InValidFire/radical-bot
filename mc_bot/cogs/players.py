@@ -99,6 +99,7 @@ class Players(commands.Cog):
         member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
         if member is not None:
             await member.add_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @staff_group.command(name="remove", description="Remove a staff member from the Minecraft server.")
@@ -127,6 +128,7 @@ class Players(commands.Cog):
         member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
         if member is not None:
             await member.remove_roles(discord.utils.get(interaction.guild.roles, name="Staff"))
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     players = app_commands.Group(name="players", description="Commands for managing players.",
@@ -145,12 +147,13 @@ class Players(commands.Cog):
             if synced_players:
                 embed.description += "\nThe following players were modified."
                 for player in synced_players:
-                    embed.description += f"\n{player.mc_username}"
+                    embed.description += f"\n- {player.mc_username}"
         except (ValueError, ConnectionRefusedError) as e:
             embed = PlayersEmbed(title="Error Syncing Player Data")
             embed.description = f"Player data could not be synced.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="profile", description="Get information about a player.")
@@ -195,6 +198,7 @@ class Players(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
         embed = PlayersEmbed(title="Player Linked", description=f"{user.mention} is now linked to **{mc_username}**.")
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
         embed.description = f"Your account has been linked to **{mc_username}**."
         await user.send(embed=embed)
@@ -219,6 +223,7 @@ class Players(commands.Cog):
             return
         embed = PlayersEmbed(title="Player Unlinked",
                              description=f"**{member.display_name}** is no longer linked to **{player_name}**.")
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
         embed.description = f"Your account has been unlinked from {player_name}."
         await member.send(embed=embed)
@@ -260,6 +265,7 @@ class Players(commands.Cog):
         member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
         if member is not None:
             await member.add_roles(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="unwhitelist", description="Unwhitelist a player on the Minecraft server.")
@@ -303,6 +309,7 @@ class Players(commands.Cog):
         member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
         if member is not None:
             await member.remove_roles(discord.utils.get(interaction.guild.roles, name="Whitelisted"))
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="trust", description="Trust a player on the Minecraft server.")
@@ -346,6 +353,7 @@ class Players(commands.Cog):
         member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
         if member is not None:
             await member.add_roles(discord.utils.get(interaction.guild.roles, name="Trusted"))
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="untrust", description="Untrust a player on the Minecraft server.")
@@ -389,6 +397,7 @@ class Players(commands.Cog):
         member: discord.Member | None = discord.utils.get(interaction.guild.members, id=user.id)
         if member is not None:
             await user.remove_roles(discord.utils.get(interaction.guild.roles, name="Trusted"))
+        self.bot.config.discord.bot_channel.send(embed=embed)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
