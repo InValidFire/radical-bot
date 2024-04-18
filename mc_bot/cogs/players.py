@@ -118,7 +118,7 @@ class Players(commands.Cog):
             embed = PlayersEmbed(title="You need to file for unemployment!",
                                  description="You are no longer a staff member on the Minecraft Server.")
             await user.send(embed=embed)
-        except ValueError as e:
+        except (ValueError, ConnectionAbortedError) as e:
             embed = PlayersEmbed(title="Error Removing Staff")
             embed.description = f"User {user.mention} could not be removed as staff.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -131,6 +131,27 @@ class Players(commands.Cog):
 
     players = app_commands.Group(name="players", description="Commands for managing players.",
                                  default_permissions=discord.Permissions(manage_guild=True))
+
+    @players.command(name="sync", description="Sync player data with the Minecraft server.")
+    async def sync(self, interaction: discord.Interaction) -> None:
+        if self.bot.server_process is None:
+            embed = PlayersEmbed(title="Error Syncing Player Data")
+            embed.description = "The Minecraft server is not running."
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        try:
+            synced_players = await self.bot.player_data.sync()
+            embed = PlayersEmbed(title="Player Data Synced", description="Player data has been synced.")
+            if synced_players:
+                embed.description += "\nThe following players were modified."
+                for player in synced_players:
+                    embed.description += f"\n{player.mc_username}"
+        except (ValueError, ConnectionRefusedError) as e:
+            embed = PlayersEmbed(title="Error Syncing Player Data")
+            embed.description = f"Player data could not be synced.\n{e}"
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @players.command(name="profile", description="Get information about a player.")
     async def info(self, interaction: discord.Interaction, user: discord.User) -> None:
@@ -162,18 +183,13 @@ class Players(commands.Cog):
     @players.command(name="link", description="Link a Discord account to a Minecraft account.")
     async def link(self, interaction: discord.Interaction, user: discord.Member, mc_username: str) -> None:
         try:
-            if self.bot.server_process is None:
+            if self.bot.server_process is None:  # check if the server is running before doing anything
                 raise ConnectionError("The Minecraft server is not running.")
             await self.bot.player_data.add(user.id, mc_username)
             app_info = await self.bot.application_info()
             if app_info.owner.id == user.id:
                 await self.bot.player_data.add_owner(user.id)
-        except ValueError as e:
-            embed = PlayersEmbed(title="Error Linking Player")
-            embed.description = f"User {user.mention} could not be linked.\n{e}"
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        except ConnectionRefusedError as e:
+        except (ValueError, ConnectionError) as e:
             embed = PlayersEmbed(title="Error Linking Player")
             embed.description = f"User {user.mention} could not be linked.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -195,14 +211,9 @@ class Players(commands.Cog):
             if check_if_user_has_role(interaction, member, "Staff"):
                 member.roles.remove(discord.utils.get(interaction.guild.roles, name="Staff"))
             await self.bot.player_data.remove(member.id)
-        except ValueError as e:
+        except (ValueError, ConnectionRefusedError) as e:
             embed = PlayersEmbed(title="Error Unlinking Player")
             logger.error("Error unlinking player: %s", e)
-            embed.description = f"User **{member.display_name}** could not be unlinked.\n{e}"
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        except ConnectionRefusedError as e:
-            embed = PlayersEmbed(title="Error Unlinking Player")
             embed.description = f"User **{member.display_name}** could not be unlinked.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
@@ -240,12 +251,7 @@ class Players(commands.Cog):
             embed.description = f"You are now whitelisted on the Minecraft server as '**{player_data.mc_username}**'."
             await self.bot.player_data.whitelist(user.id)
             await user.send(embed=embed)
-        except ValueError as e:
-            embed = PlayersEmbed(title="Error Whitelisting")
-            embed.description = f"User {user.mention} could not be whitelisted.\n{e}"
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        except ConnectionRefusedError as e:
+        except (ValueError, ConnectionRefusedError) as e:
             embed = PlayersEmbed(title="Error Whitelisting")
             embed.description = f"User {user.mention} could not be whitelisted.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -288,12 +294,7 @@ class Players(commands.Cog):
             embed.description = "You are no longer whitelisted on the Minecraft server."
             await self.bot.player_data.unwhitelist(user.id)
             await user.send(embed=embed)
-        except ValueError as e:
-            embed = PlayersEmbed(title="Error Unwhitelisting")
-            embed.description = f"User {user.mention} could not be unwhitelisted.\n{e}"
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        except ConnectionRefusedError as e:
+        except (ValueError, ConnectionRefusedError) as e:
             embed = PlayersEmbed(title="Error Unwhitelisting")
             embed.description = f"User {user.mention} could not be unwhitelisted.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -336,12 +337,7 @@ class Players(commands.Cog):
             embed.description = "You are now trusted on the Minecraft server."
             await self.bot.player_data.trust(user.id)
             await user.send(embed=embed)
-        except ValueError as e:
-            embed = PlayersEmbed(title="Error Trusting")
-            embed.description = f"User {user.mention} could not be trusted.\n{e}"
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        except ConnectionRefusedError as e:
+        except (ValueError, ConnectionRefusedError) as e:
             embed = PlayersEmbed(title="Error Trusting")
             embed.description = f"User {user.mention} could not be trusted.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -384,12 +380,7 @@ class Players(commands.Cog):
             embed.description = "You are no longer trusted on the Minecraft server."
             await self.bot.player_data.untrust(user.id)
             await user.send(embed=embed)
-        except ValueError as e:
-            embed = PlayersEmbed(title="Error Untrusting")
-            embed.description = f"User {user.mention} could not be untrusted.\n{e}"
-            await interaction.response.send_message(embed=embed, ephemeral=True)
-            return
-        except ConnectionRefusedError as e:
+        except (ValueError, ConnectionRefusedError) as e:
             embed = PlayersEmbed(title="Error Untrusting")
             embed.description = f"User {user.mention} could not be untrusted.\n{e}"
             await interaction.response.send_message(embed=embed, ephemeral=True)

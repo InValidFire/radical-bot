@@ -7,7 +7,7 @@ import logging
 import aiofiles
 import aiohttp
 
-from .mcrcon import team_join, team_leave, op, deop, whitelist_add, whitelist_remove
+from .mcrcon import team_join, team_leave, op, deop, whitelist_add, whitelist_remove, get_team_players
 from .config import Rcon
 
 import discord
@@ -83,6 +83,7 @@ def create_profile_embed(user: discord.User, player: Player, embed: discord.Embe
 
 
 async def mc_whitelist(player: Player, rcon_config: Rcon):
+    await team_leave(player.mc_username, rcon_config)
     await team_join("Whitelisted", player.mc_username, rcon_config, "green")
     await whitelist_add(player.mc_username, rcon_config)
     player.is_whitelisted = True
@@ -99,7 +100,7 @@ async def mc_unwhitelist(player: Player, rcon_config: Rcon):
     Raises:
         ValueError: If the player is not found.
     """
-    await team_leave("Whitelisted", player.mc_username, rcon_config)
+    await team_leave(player.mc_username, rcon_config)
     await whitelist_remove(player.mc_username, rcon_config)
     player.is_whitelisted = False
 
@@ -115,7 +116,7 @@ async def mc_trust(player: Player, rcon_config: Rcon):
     Raises:
         ValueError: If the player is not found.
     """
-    await team_leave("Whitelisted", player.mc_username, rcon_config)
+    await team_leave(player.mc_username, rcon_config)
     await team_join("Trusted", player.mc_username, rcon_config, "blue")
     player.is_trusted = True
 
@@ -131,7 +132,7 @@ async def mc_untrust(player: Player, rcon_config: Rcon):
     Raises:
         ValueError: If the player is not found.
     """
-    await team_leave("Trusted", player.mc_username, rcon_config)
+    await team_leave(player.mc_username, rcon_config)
     await team_join("Whitelisted", player.mc_username, rcon_config, "green")
     player.is_trusted = False
 
@@ -147,7 +148,7 @@ async def mc_staff(player: Player, rcon_config: Rcon):
     Raises:
         ValueError: If the player is not found.
     """
-    await team_leave("Trusted", player.mc_username, rcon_config)
+    team_leave(player.mc_username, rcon_config)
     await team_join("Staff", player.mc_username, rcon_config, "purple")
     await op(player.mc_username, rcon_config)
     player.is_staff = True
@@ -164,7 +165,7 @@ async def mc_unstaff(player: Player, rcon_config: Rcon):
     Raises:
         ValueError: If the player is not found.
     """
-    await team_leave("Staff", player.mc_username, rcon_config)
+    await team_leave(player.mc_username, rcon_config)
     await team_join("Trusted", player.mc_username, rcon_config, "blue")
     await deop(player.mc_username, rcon_config)
     player.is_staff = False
@@ -198,8 +199,8 @@ async def mc_unowner(player: Player, rcon_config: Rcon):
     Raises:
         ValueError: If the player is not found.
     """
-    await team_leave("Owner", player.mc_username, rcon_config)
     await deop(player.mc_username, rcon_config)
+    await mc_trust(player, rcon_config)
     player.is_owner = False
 
 
@@ -214,6 +215,57 @@ class PlayerData:
 
     def __str__(self):
         return str(self._playerdata)
+
+    async def sync(self, guild: discord.Guild) -> list[Player]:
+        """
+        Sync the player data with the Minecraft Server.
+
+        Raises:
+            FileNotFoundError: If the file is not found.
+        """
+        synced_players = []
+        for discord_id, player in self._playerdata.items():
+            player = Player.from_dict(player)
+            owners_team = await get_team_players("Owner", self.rcon_config)
+            staff_team = await get_team_players("Staff", self.rcon_config)
+            trusted_team = await get_team_players("Trusted", self.rcon_config)
+            whitelisted_team = await get_team_players("Whitelisted", self.rcon_config)
+
+            if discord.utils.get(guild.members, id=int(discord_id)) is None:
+                logger.info(f"Player {player.mc_username} not found in the server, removing from player data.")
+                synced_players.append(player)
+                await self.remove(int(discord_id))
+                continue
+
+            # applies the correct team to the player based on their highest role in the Discord server
+            if player.is_owner and player.mc_username not in owners_team:
+                await mc_owner(player, self.rcon_config)
+                synced_players.append(player)
+                continue
+            elif player.is_owner and player.mc_username in owners_team:
+                continue  # owner is already in the owner team, no action needed
+
+            if player.is_staff and player.mc_username not in staff_team:
+                await mc_staff(player, self.rcon_config)
+                synced_players.append(player)
+                continue
+            elif player.is_staff and player.mc_username in staff_team:
+                continue
+
+            if player.is_trusted and player.mc_username not in trusted_team:
+                await mc_trust(player, self.rcon_config)
+                synced_players.append(player)
+                continue
+            elif player.is_trusted and player.mc_username in trusted_team:
+                continue
+
+            if player.is_whitelisted and player.mc_username not in whitelisted_team:
+                await mc_whitelist(player, self.rcon_config)
+                synced_players.append(player)
+                continue
+            elif player.is_whitelisted and player.mc_username in whitelisted_team:
+                continue
+        return synced_players
 
     async def save(self):
         """
