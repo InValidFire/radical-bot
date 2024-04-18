@@ -86,7 +86,7 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
             embed.description = "Server file not found."
             logger.error("Server file not found.")
             if interaction is not None and not interaction.is_expired():
-                await interaction.response.send_message(embed=embed)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
             return embed
         if bot.config.minecraft.server_dir.joinpath("server.properties").exists():
             properties = Properties(bot.config.minecraft.server_dir.joinpath("server.properties"))
@@ -94,7 +94,7 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
             if properties['enable-rcon'] is not True:
                 embed.description = "RCON is not enabled. Please enable RCON with the '/server_init' command."
                 if interaction is not None and not interaction.is_expired():
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
                 return embed
         if bot.config.minecraft.server_dir.joinpath("eula.txt").exists():
             eula = Properties(bot.config.minecraft.server_dir.joinpath("eula.txt"))
@@ -102,7 +102,7 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
                 embed.description = "EULA not signed. Please sign the EULA with the '/server_init' command."
                 logger.error("EULA not signed.")
                 if interaction is not None and not interaction.is_expired():
-                    await interaction.response.send_message(embed=embed)
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
                 return embed
         else:
             embed.description = "Initializing server... Please run the '/server_init' command."
@@ -113,13 +113,13 @@ async def _start_server(bot: MainBot, interaction: discord.Interaction = None) -
         embed.description = "Server started successfully."
         logger.info("Server started.")
         if interaction is not None and not interaction.is_expired():
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
         return embed
     else:
         embed.description = "Server is already running."
         logger.info("Server is already running.")
         if interaction is not None and not interaction.is_expired():
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
     return embed
 
 
@@ -188,7 +188,7 @@ async def _stop_server(bot: MainBot, interaction: discord.Interaction = None) ->
             if interaction.response.is_done():
                 await interaction.edit_original_response(embed=embed)
             else:
-                await interaction.response.send_message(embed=embed)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
     return embed
 
 
@@ -203,10 +203,7 @@ async def _update_server(bot: MainBot, url: str, interaction: discord.Interactio
         return embed
     embed.description = "Updating server.."
     if interaction is not None and not interaction.is_expired():
-        if interaction.response.is_done():
-            await interaction.edit_original_response(embed=embed)
-        else:
-            await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
     if not url.endswith(".jar"):
         embed.description = "Update failed. Invalid file type."
         if interaction is not None and not interaction.is_expired():
@@ -247,7 +244,7 @@ class MinecraftServer(commands.Cog):
         if interaction.response.is_done():
             await interaction.edit_original_response(embed=embed)
         else:
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.default_permissions(manage_guild=True)
     @app_commands.command(name="server_stop", description="Stop the Minecraft server.")
@@ -262,7 +259,7 @@ class MinecraftServer(commands.Cog):
         if interaction.response.is_done():
             await interaction.edit_original_response(embed=embed)
         else:
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @run_command.error
     async def run_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
@@ -275,7 +272,7 @@ class MinecraftServer(commands.Cog):
         if interaction.response.is_done():
             await interaction.edit_original_response(embed=embed)
         else:
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.default_permissions(administrator=True)
     @app_commands.command(name="server_update", description="Update the Minecraft server.")
