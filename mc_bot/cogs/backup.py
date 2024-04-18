@@ -221,8 +221,10 @@ async def _restore_backup(bot: MainBot, location: str,
                 shutil.rmtree(bot.config.minecraft.server_dir)
             bot.config.minecraft.server_dir.mkdir()
             backup_zip.extractall(bot.config.minecraft.server_dir)
+            await bot.player_data.sync(interaction.guild)  # sync the player data with the restored copy
             embed.set_field_at(0, name="Status", value="restored")
             embed.description = "Thanks for waiting! The backup has been restored."
+            embed.description += "\nPlayer data has been automatically synced."
         except Exception as e:
             logger.error("Failed to restore backup: %s", e)
             embed.set_field_at(0, name="Status", value="failed")
