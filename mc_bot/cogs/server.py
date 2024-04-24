@@ -16,7 +16,7 @@ from discord.ext import commands, tasks
 
 from ..views.confirm_view import ConfirmView
 from ..properties import Properties
-from ..mcrcon import run_command
+from ..mcrcon import stop_server, run_command
 from ..bot import MainBot
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ async def _stop_server(bot: MainBot, interaction: discord.Interaction = None) ->
         if interaction is not None and not interaction.is_expired():
             await interaction.response.send_message(embed=embed, ephemeral=True)
         try:
-            await _run_command(bot, "stop")
+            await stop_server(bot.config.minecraft.rcon)
             return_code = bot.server_process.wait()
             bot.server_process = None
             embed.description = f"Server stopped with return code {return_code}."
@@ -204,7 +204,7 @@ async def _update_server(bot: MainBot, url: str, interaction: discord.Interactio
     embed.description = "Updating server.."
     if interaction is not None and not interaction.is_expired():
         await interaction.response.send_message(embed=embed, ephemeral=True)
-    if not url.endswith(".jar"):
+    if not url.endswith("jar"):
         embed.description = "Update failed. Invalid file type."
         if interaction is not None and not interaction.is_expired():
             await interaction.edit_original_response(embed=embed)

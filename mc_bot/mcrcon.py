@@ -33,6 +33,18 @@ async def run_command(command: str, rcon_config: Rcon) -> str:
     return response
 
 
+async def stop_server(rcon_config: Rcon) -> str:
+    """Stop the Minecraft server.
+
+    Args:
+        rcon_config (Rcon): The Rcon configuration.
+
+    Returns:
+        str: The response from the server.
+    """
+    return await run_command("stop", rcon_config)
+
+
 async def get_players(rcon_config: Rcon) -> list[str]:
     """Get the players on the Minecraft server.
 

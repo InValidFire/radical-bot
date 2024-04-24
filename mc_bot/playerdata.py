@@ -205,6 +205,20 @@ async def mc_unowner(player: Player, rcon_config: Rcon):
 
 
 class PlayerData:
+    """
+    Represents the player data for the bot. 
+
+    This class is used to manage player data and sync it with Minecraft.
+
+    Args:
+        file_path (Path): The file path to the player data file.
+        rcon_config (Rcon): The Rcon configuration to use.
+
+    Attributes:
+        file_path (Path): The file path to the player data file.
+        _playerdata (dict[int, dict[str, str]]): The player data.
+        rcon_config (Rcon): The Rcon configuration to use.
+    """
     def __init__(self, file_path: Path, rcon_config: Rcon):
         self.file_path = file_path
         if not file_path.exists():

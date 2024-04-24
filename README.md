@@ -18,10 +18,12 @@
 - Manage Minecraft server config
     - Get current config files
     - Replace config files remotely
-- **Manage Server Ranks**
+- **Manage Server Profiles**
     - **Link Discord accounts w/ Minecraft accounts**
     - **Whitelist users**
     - **Trust users**
+    - **Automatically create MC server teams**
+    - **Synchronize profiles from Discord with the MC server**
 - Manage Minecraft server plugins
     - Plugin addition/removal
     - Plugin updating
