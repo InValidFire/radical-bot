@@ -7,7 +7,10 @@ import logging
 import aiofiles
 import aiohttp
 
-from .mcrcon import team_join, team_leave, op, deop, whitelist_add, whitelist_remove, get_team_players
+from .mcrcon import (
+    team_join, team_leave, op, deop, whitelist_add, whitelist_remove,
+    get_team_players, get_whitelist_players
+)
 from .config import Rcon
 
 import discord
@@ -116,6 +119,8 @@ async def mc_trust(player: Player, rcon_config: Rcon):
     Raises:
         ValueError: If the player is not found.
     """
+    if player.mc_username not in await get_whitelist_players(rcon_config):
+        await whitelist_add(player, rcon_config)
     await team_leave(player.mc_username, rcon_config)
     await team_join("Trusted", player.mc_username, rcon_config, "blue")
     player.is_trusted = True
@@ -148,7 +153,9 @@ async def mc_staff(player: Player, rcon_config: Rcon):
     Raises:
         ValueError: If the player is not found.
     """
-    team_leave(player.mc_username, rcon_config)
+    if player.mc_username not in await get_whitelist_players(rcon_config):
+        await whitelist_add(player.mc_username, rcon_config)
+    await team_leave(player.mc_username, rcon_config)
     await team_join("Staff", player.mc_username, rcon_config, "purple")
     await op(player.mc_username, rcon_config)
     player.is_staff = True
@@ -181,6 +188,8 @@ async def mc_owner(player: Player, rcon_config: Rcon):
 
     Raises:
         ValueError: If the player is not found."""
+    if player.mc_username not in await get_whitelist_players(rcon_config):
+        await whitelist_add(player.mc_username, rcon_config)
     await team_join("Owner", player.mc_username, rcon_config, "light_purple")
     await whitelist_add(player.mc_username, rcon_config)
     await op(player.mc_username, rcon_config)

@@ -100,6 +100,23 @@ async def get_team_players(team: str, rcon_config: Rcon) -> list[str]:
     return response
 
 
+async def get_whitelist_players(rcon_config: Rcon) -> list[str]:
+    """Get the players on the whitelist.
+
+    Args:
+        rcon_config (Rcon): The Rcon configuration.
+
+    Returns:
+        list[str]: The players on the whitelist.
+    """
+    response = await run_command("whitelist list", rcon_config)
+    if response == "There are no whitelisted players":
+        return []
+    response = response.split(": ")[1].strip()
+    response = response.split(", ")
+    return response
+
+
 async def whitelist_add(player: str, rcon_config: Rcon) -> str:
     await run_command(f"whitelist add {player}", rcon_config)
 
