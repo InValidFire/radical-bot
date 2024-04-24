@@ -120,7 +120,7 @@ async def mc_trust(player: Player, rcon_config: Rcon):
         ValueError: If the player is not found.
     """
     if player.mc_username not in await get_whitelist_players(rcon_config):
-        await whitelist_add(player, rcon_config)
+        await whitelist_add(player.mc_username, rcon_config)
     await team_leave(player.mc_username, rcon_config)
     await team_join("Trusted", player.mc_username, rcon_config, "blue")
     player.is_trusted = True
