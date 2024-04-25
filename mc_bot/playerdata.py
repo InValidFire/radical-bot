@@ -156,7 +156,7 @@ async def mc_staff(player: Player, rcon_config: Rcon):
     if player.mc_username not in await get_whitelist_players(rcon_config):
         await whitelist_add(player.mc_username, rcon_config)
     await team_leave(player.mc_username, rcon_config)
-    await team_join("Staff", player.mc_username, rcon_config, "purple")
+    await team_join("Staff", player.mc_username, rcon_config, "dark_purple")
     await op(player.mc_username, rcon_config)
     player.is_staff = True
 
